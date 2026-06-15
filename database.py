@@ -1,17 +1,15 @@
 import pymysql 
 from datetime import datetime
-
 con=pymysql.Connection(
     host='localhost',
     port=3306,
     user='root',
     password=None,
     database='nim_game'
-)
+    )
 
 def initialiser_bd():
-
-    with con.cursor() as cur:
+     with con.cursor() as cur:
         try:
             cur.execute("""CREATE TABLE IF NOT EXISTS joueurs(
                             id            INT           PRIMARY KEY AUTO_INCREMENT ,
@@ -39,7 +37,7 @@ def initialiser_bd():
                             duree_secondes  INT          DEFAULT 0,
                             nb_coups        INT          DEFAULT 0,
                             FOREIGN KEY (joueur1_id) REFERENCES joueurs(id),
-                            FOREIGN KEY (joueur2_id) REFERENCES joueurs(id))       """)
+                            FOREIGN KEY (joueur2_id) REFERENCES joueurs(id))""")
             con.commit()
         except pymysql.Error as e:
             con.rollback()
@@ -55,15 +53,13 @@ def creer_joueur(nom):
             return False,"Ce pseudo est déjà utilisé."
         except Exception as e:
             return False,str(e)
-
-
+        
 def get_tous_joueurs():
     joueurs=[]
     with con.cursor() as cur:
         cur.execute("SELECT * FROM joueurs ORDER BY score_total DESC")
         joueurs=cur.fetchall()
     return joueurs
-
 
 def get_joueur_par_id(joueur_id):
     row=[]
@@ -72,14 +68,12 @@ def get_joueur_par_id(joueur_id):
         row=cur.fetchone()
     return row
 
-
 def get_joueur_par_nom(nom):
     row=[]
     with con.cursor() as cur:
         cur.execute("SELECT * FROM joueurs WHERE nom=%s", (nom.strip(),))
         row=cur.fetchone()
     return row
-
 
 def mettre_a_jour_stats(joueur_id,victoire=0,defaite=0,nul=0,points=0):
     with con.cursor() as cur:
@@ -93,7 +87,6 @@ def mettre_a_jour_stats(joueur_id,victoire=0,defaite=0,nul=0,points=0):
             con.commit()
         except pymysql.Error as e:
             con.rollback()
-
 
 def supprimer_joueur(joueur_id):
     with con.cursor() as cur:
@@ -115,7 +108,7 @@ def enregistrer_partie(joueur1_id,joueur2_id,mode_jeu,niveau_ia,piles_initiales,
             con.commit()
         except pymysql.Error as e:
             con.rollback()
-
+            
 def get_historique_joueur(joueur_id,limite=20):
     parties=[]
     with con.cursor() as cur:
@@ -147,7 +140,7 @@ def get_statistiques_globales():
         classement=cur.fetchall()
 
         return(total,moy,par_niveau,classement)
-
+    
 def get_evolution_score(joueur_id):
     parties=[]
     with con.cursor() as cur:
