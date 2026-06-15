@@ -1,6 +1,8 @@
 TITRE="Jeu de Nim - IA & Statistiques"
+
 LARGEUR_FENETRE=900
 HAUTEUR_FENETRE=650
+
 COULEUR_FOND="#1a1a2e"
 COULEUR_PANNEAU="#16213e"
 COULEUR_ACCENT="#0f3460"
@@ -15,12 +17,14 @@ COULEUR_ERREUR="#f44336"
 COULEUR_OR="#ffd700"
 COULEUR_ARGENT="#c0c0c0"
 COULEUR_BRONZE="#cd7f32"
-POLICE_TITRE=("Helvetica", 22, "bold")
-POLICE_SOUS=("Helvetica", 14, "bold")
-POLICE_NORMAL=("Helvetica", 11)
-POLICE_SMALL=("Helvetica", 9)
-POLICE_MONO=("Courier", 11)
-PILES_DEFAUT=[3, 5, 7]
+
+POLICE_TITRE=("Helvetica",22,"bold")
+POLICE_SOUS=("Helvetica",14,"bold")
+POLICE_NORMAL=("Helvetica",11)
+POLICE_SMALL=("Helvetica",9)
+POLICE_MONO=("Courier",11)
+PILES_DEFAUT=[3,5,7]
+
 NIVEAUX_IA={
     1: "Débutant",
     2: "Intermédiaire",

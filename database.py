@@ -1,5 +1,6 @@
 import pymysql 
 from datetime import datetime
+
 con=pymysql.Connection(
     host='localhost',
     port=3306,
@@ -9,7 +10,7 @@ con=pymysql.Connection(
     )
 
 def initialiser_bd():
-     with con.cursor() as cur:
+    with con.cursor() as cur:
         try:
             cur.execute("""CREATE TABLE IF NOT EXISTS joueurs(
                             id            INT           PRIMARY KEY AUTO_INCREMENT ,
@@ -17,8 +18,7 @@ def initialiser_bd():
                             date_creation DATETIME      DEFAULT NOW(),
                             score_total   INT           DEFAULT 0,
                             victoires     INT           DEFAULT 0,
-                            defaites      INT           DEFAULT 0,
-                            nuls          INT           DEFAULT 0)      """)
+                            defaites      INT           DEFAULT 0 """)
             con.commit()
         except pymysql.Error as e:
             con.rollback()
@@ -71,19 +71,18 @@ def get_joueur_par_id(joueur_id):
 def get_joueur_par_nom(nom):
     row=[]
     with con.cursor() as cur:
-        cur.execute("SELECT * FROM joueurs WHERE nom=%s", (nom.strip(),))
+        cur.execute("SELECT * FROM joueurs WHERE nom=%s",(nom.strip(),))
         row=cur.fetchone()
     return row
 
-def mettre_a_jour_stats(joueur_id,victoire=0,defaite=0,nul=0,points=0):
+def mettre_a_jour_stats(joueur_id,victoire=0,defaite=0,points=0):
     with con.cursor() as cur:
         try:
             cur.execute("""UPDATE joueurs 
                         SET score_total=score_total+%s,
                             victoires=victoires+%s,
-                            defaites=defaites+%s,
-                            nuls=nuls+%s
-                            WHERE id=%s """,(points,int(victoire),int(defaite),int(nul),joueur_id))
+                            defaites=defaites+%s
+                            WHERE id=%s """,(points,int(victoire),int(defaite),joueur_id))
             con.commit()
         except pymysql.Error as e:
             con.rollback()
@@ -135,7 +134,7 @@ def get_statistiques_globales():
         cur.execute("""SELECT niveau_ia,COUNT(*) FROM parties WHERE mode_jeu='JcIA' GROUP BY niveau_ia ORDER BY niveau_ia """)
         par_niveau=cur.fetchall()
 
-        cur.execute("""SELECT nom,score_total,victoires,defaites,nuls,(victoires+defaites+nuls) FROM joueurs WHERE (victoires+defaites+nuls)>0
+        cur.execute("""SELECT nom,score_total,victoires,defaites,(victoires+defaites+nuls) FROM joueurs WHERE (victoires+defaites)>0
                         ORDER BY score_total DESC,victoires DESC """)
         classement=cur.fetchall()
 

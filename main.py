@@ -12,7 +12,7 @@ import player as pl
 import enemy as en
 from settings import *
 from player import (
-    J_ID, J_NOM, J_DATE_CREATION, J_SCORE_TOTAL, J_VICTOIRES, J_DEFAITES, J_NULS,
+    J_ID, J_NOM, J_DATE_CREATION, J_SCORE_TOTAL, J_VICTOIRES, J_DEFAITES,
     P_ID, P_JOUEUR1_ID, P_JOUEUR2_ID, P_MODE_JEU, P_NIVEAU_IA, P_PILES,
     P_GAGNANT_ID, P_PERDANT_ID, P_DATE_PARTIE, P_DUREE_SECONDES, P_NB_COUPS,
 )
@@ -769,7 +769,6 @@ class EcranProfil:
             ("⭐ Score total",       stats["score"]),
             ("🏆 Victoires",         stats["victoires"]),
             ("💀 Défaites",          stats["defaites"]),
-            ("🤝 Nuls",              stats["nuls"]),
             ("🎮 Parties jouées",    stats["total_parties"]),
             ("📊 Taux de victoire",  f"{stats['taux_victoire']} %"),
             ("📅 Membre depuis",     stats["date_creation"]),
@@ -816,12 +815,8 @@ class EcranProfil:
                 gagnant_id = partie[P_GAGNANT_ID]
                 if gagnant_id == j[J_ID]:
                     res = "✅ Victoire"
-                elif gagnant_id is None and mode == "JcIA":
-                    res = "❌ Défaite"
-                elif gagnant_id != j[J_ID] and gagnant_id is not None:
-                    res = "❌ Défaite"
                 else:
-                    res = "🤝 Nul"
+                    res = "❌ Défaite"
 
                 duree = f"{partie[P_DUREE_SECONDES]}s"
                 coups = str(partie[P_NB_COUPS])
@@ -939,8 +934,7 @@ class EcranStats:
         CL_SCORE         = 1
         CL_VICTOIRES     = 2
         CL_DEFAITES      = 3
-        CL_NULS          = 4
-        CL_TOTAL_PARTIES = 5
+        CL_TOTAL_PARTIES = 4
 
         carte_class = frame_carte(f, padx=25, pady=12)
         carte_class.pack(padx=30, pady=5, fill="x")
