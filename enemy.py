@@ -24,7 +24,10 @@ def ia_intermediaire(piles):
     return idx_max,nb_objets
 
 def _est_terminal(piles):
-    return all(p==0 for p in piles)
+    for p in piles:
+        if p!=0:
+            return False
+    return True
 
 
 def _minimax(piles,est_ia,profondeur):
@@ -74,7 +77,7 @@ def ia_avance(piles):
                 meilleur_score=score
                 meilleur_coup=(i,nb)
 
-    if meilleur_coup:
+    if meilleur_coup!=0:
         return meilleur_coup
     return ia_debutant(piles)
 
