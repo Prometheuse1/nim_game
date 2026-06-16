@@ -1,4 +1,4 @@
-import pymysql 
+import pymysql
 from datetime import datetime
 
 con=pymysql.Connection(
@@ -7,20 +7,20 @@ con=pymysql.Connection(
     user='root',
     password=None,
     database='nim_game'
-    )
+)
 
 def initialiser_bd():
     with con.cursor() as cur:
         try:
             cur.execute("""CREATE TABLE IF NOT EXISTS joueurs(
-                            id            INT           PRIMARY KEY AUTO_INCREMENT ,
+                            id            INT           PRIMARY KEY AUTO_INCREMENT,
                             nom           VARCHAR(20)   NOT NULL UNIQUE,
                             date_creation DATETIME      DEFAULT NOW(),
                             score_total   INT           DEFAULT 0,
                             victoires     INT           DEFAULT 0,
-                            defaites      INT           DEFAULT 0 """)
+                            defaites      INT           DEFAULT 0)""")
             con.commit()
-        except pymysql.Error as e:
+        except pymysql.Error:
             con.rollback()
 
         try:
@@ -39,7 +39,7 @@ def initialiser_bd():
                             FOREIGN KEY (joueur1_id) REFERENCES joueurs(id),
                             FOREIGN KEY (joueur2_id) REFERENCES joueurs(id))""")
             con.commit()
-        except pymysql.Error as e:
+        except pymysql.Error:
             con.rollback()
 
 def creer_joueur(nom):
@@ -102,7 +102,7 @@ def enregistrer_partie(joueur1_id,joueur2_id,mode_jeu,niveau_ia,piles_initiales,
         try:
             cur.execute("""INSERT INTO parties
                     (joueur1_id, joueur2_id, mode_jeu, niveau_ia, piles_initiales,gagnant_id, perdant_id, duree_secondes, nb_coups)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) """,(joueur1_id,joueur2_id,mode_jeu,niveau_ia,piles_str,
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",(joueur1_id,joueur2_id,mode_jeu,niveau_ia,piles_str,
                                                                     gagnant_id, perdant_id, duree_secondes, nb_coups))
             con.commit()
         except pymysql.Error as e:
@@ -134,7 +134,7 @@ def get_statistiques_globales():
         cur.execute("""SELECT niveau_ia,COUNT(*) FROM parties WHERE mode_jeu='JcIA' GROUP BY niveau_ia ORDER BY niveau_ia """)
         par_niveau=cur.fetchall()
 
-        cur.execute("""SELECT nom,score_total,victoires,defaites,(victoires+defaites+nuls) FROM joueurs WHERE (victoires+defaites)>0
+        cur.execute("""SELECT nom,score_total,victoires,defaites,(victoires+defaites) FROM joueurs WHERE (victoires+defaites)>0
                         ORDER BY score_total DESC,victoires DESC """)
         classement=cur.fetchall()
 

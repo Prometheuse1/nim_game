@@ -77,7 +77,7 @@ def ia_avance(piles):
                 meilleur_score=score
                 meilleur_coup=(i,nb)
 
-    if meilleur_coup!=0:
+    if meilleur_coup:
         return meilleur_coup
     return ia_debutant(piles)
 

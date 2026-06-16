@@ -1,425 +1,1059 @@
-#!/usr/bin/env python3
-"""Jeu de Nim simple avec interface Tkinter procédurale."""
-import random
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox, font
+import random
+import time
+from datetime import datetime
+import database as db
+import player as player_service
+import enemy as enemy_ai
 
-players = {}
-history = []
-piles = [5, 4, 3]
-current_player = None
-mode_var = None
-player1_var = None
-player2_var = None
-pile_var = None
-remove_var = None
-player_listbox = None
-stats_label = None
-history_text = None
-piles_label = None
-winner_label = None
-start_button = None
-remove_button = None
-player2_menu = None
-piles_canvas = None
+# ─── PALETTE (from settings.py) ─────────────────────────────────────────────
+C_FOND       = "#1a1a2e"
+C_PANNEAU    = "#16213e"
+C_ACCENT     = "#0f3460"
+C_BOUTON     = "#e94560"
+C_BTN_HOVER  = "#c73652"
+C_TEXTE      = "#eaeaea"
+C_TEXTE_ALT  = "#a8a8b3"
+C_PILE       = "#f5a623"
+C_PILE_SEL   = "#ff6b35"
+C_SUCCES     = "#4caf50"
+C_ERREUR     = "#f44336"
+C_OR         = "#ffd700"
+C_ARGENT     = "#c0c0c0"
+C_BRONZE     = "#cd7f32"
+C_BORDURE    = "#0f3460"
+C_HIGHLIGHT  = "#e94560"
 
+# ─── FONTS ───────────────────────────────────────────────────────────────────
+F_TITRE      = ("Helvetica", 22, "bold")
+F_SOUS       = ("Helvetica", 14, "bold")
+F_NORMAL     = ("Helvetica", 11)
+F_SMALL      = ("Helvetica", 9)
+F_MONO       = ("Courier", 11)
+F_BIG        = ("Helvetica", 28, "bold")
+F_ICON       = ("Helvetica", 18, "bold")
 
-def ajouter_joueur():
-    name = player_name_entry.get().strip()
-    if not name:
-        messagebox.showwarning("Erreur", "Entrez un nom de joueur valide.")
-        return
-    if name in players:
-        messagebox.showwarning("Erreur", "Ce joueur existe déjà.")
-        return
-    players[name] = {"wins": 0, "losses": 0, "games": 0}
-    player_name_entry.delete(0, tk.END)
-    mettre_a_jour_players()
-    messagebox.showinfo("Succès", f"Joueur '{name}' ajouté.")
+# ─── STATE ───────────────────────────────────────────────────────────────────
+etat = {
+    "page_courante": "accueil",
+    "joueur1": None,
+    "joueur2": None,
+    "mode_jeu": "JcIA",
+    "niveau_ia": 4,
+    "piles": [3, 5, 7],
+    "piles_initiales": [3, 5, 7],
+    "tour": 1,
+    "partie_en_cours": False,
+    "debut_partie": None,
+    "nb_coups": 0,
+    "pile_selectionnee": None,
+    "frame_principale": None,
+    "root": None,
+}
 
+# ─── HELPERS ─────────────────────────────────────────────────────────────────
+def nim_sum(piles):
+    r = 0
+    for p in piles:
+        r ^= p
+    return r
 
-def mettre_a_jour_players():
-    player_listbox.delete(0, tk.END)
-    noms = list(players.keys())
-    for nom in noms:
-        player_listbox.insert(tk.END, f"{nom} - V:{players[nom]['wins']} D:{players[nom]['losses']} G:{players[nom]['games']}")
-    if noms:
-        player1_var.set(noms[0])
-        player2_var.set(noms[0] if len(noms) > 1 else noms[0])
-    else:
-        player1_var.set("")
-        player2_var.set("")
-    mettre_a_jour_option_menu()
-    mettre_a_jour_stats()
+def ia_expert_coup(piles):
+    ns = nim_sum(piles)
+    if ns != 0:
+        for i, taille in enumerate(piles):
+            cible = taille ^ ns
+            if cible < taille:
+                return i, taille - cible
+    non_vides = [(i, p) for i, p in enumerate(piles) if p > 0]
+    idx, taille = random.choice(non_vides)
+    return idx, random.randint(1, taille)
 
+def ia_debutant_coup(piles):
+    non_vides = [i for i, p in enumerate(piles) if p > 0]
+    idx = random.choice(non_vides)
+    return idx, random.randint(1, piles[idx])
 
-def mettre_a_jour_option_menu():
-    noms = list(players.keys())
-    menu1 = player1_menu["menu"]
-    menu2 = player2_menu["menu"]
-    menu1.delete(0, tk.END)
-    menu2.delete(0, tk.END)
-    for nom in noms:
-        menu1.add_command(label=nom, command=lambda value=nom: player1_var.set(value))
-        menu2.add_command(label=nom, command=lambda value=nom: player2_var.set(value))
-    player2_menu.config(state="normal" if mode_var.get() == 1 else "disabled")
+def ia_intermediaire_coup(piles):
+    non_vides = [(i, p) for i, p in enumerate(piles) if p > 0]
+    if len(non_vides) == 1:
+        return non_vides[0]
+    idx, taille = max(non_vides, key=lambda x: x[1])
+    nb = random.randint(max(1, taille // 3), max(1, taille * 2 // 3))
+    return idx, nb
 
+def jouer_ia(piles, niveau):
+    if niveau == 1:
+        return ia_debutant_coup(piles)
+    if niveau == 2:
+        return ia_intermediaire_coup(piles)
+    if niveau == 3:
+        return enemy_ai.jouer_ia(piles, niveau)
+    if niveau == 4:
+        return ia_expert_coup(piles)
+    return ia_debutant_coup(piles)
 
-def new_game():
-    global piles, current_player
-    if mode_var.get() == 1:
-        if player1_var.get() == player2_var.get() or not player1_var.get() or not player2_var.get():
-            messagebox.showwarning("Erreur", "Choisissez deux joueurs différents.")
+def partie_terminee():
+    return all(p == 0 for p in etat["piles"])
+
+def effacer_frame():
+    for w in etat["frame_principale"].winfo_children():
+        w.destroy()
+
+# ─── WIDGET FACTORIES ────────────────────────────────────────────────────────
+def creer_btn(parent, texte, commande, couleur=C_BOUTON, fg=C_TEXTE, padx=20, pady=8, taille=11, **kwargs):
+    btn = tk.Button(
+        parent, text=texte, command=commande,
+        bg=couleur, fg=fg, font=("Helvetica", taille, "bold"),
+        relief="flat", cursor="hand2",
+        padx=padx, pady=pady,
+        activebackground=C_BTN_HOVER, activeforeground=C_TEXTE,
+        bd=0, **kwargs
+    )
+    def on_enter(e): btn.config(bg=C_BTN_HOVER if couleur == C_BOUTON else couleur)
+    def on_leave(e): btn.config(bg=couleur)
+    btn.bind("<Enter>", on_enter)
+    btn.bind("<Leave>", on_leave)
+    return btn
+
+def creer_label(parent, texte, taille=11, couleur=C_TEXTE, bold=False, **kwargs):
+    style = "bold" if bold else "normal"
+    return tk.Label(parent, text=texte, bg=C_FOND, fg=couleur,
+                    font=("Helvetica", taille, style), **kwargs)
+
+def creer_entry(parent, largeur=20, **kwargs):
+    e = tk.Entry(parent, width=largeur, bg=C_ACCENT, fg=C_TEXTE,
+                 insertbackground=C_TEXTE, font=F_NORMAL,
+                 relief="flat", bd=8, **kwargs)
+    return e
+
+def creer_carte(parent, titre=None, **kwargs):
+    frame = tk.Frame(parent, bg=C_PANNEAU, bd=0, relief="flat", **kwargs)
+    if titre:
+        tk.Label(frame, text=titre, bg=C_PANNEAU, fg=C_PILE,
+                 font=F_SOUS).pack(anchor="w", padx=15, pady=(12, 4))
+        sep = tk.Frame(frame, bg=C_BORDURE, height=1)
+        sep.pack(fill="x", padx=15, pady=(0, 8))
+    return frame
+
+def creer_separateur(parent, couleur=C_BORDURE):
+    return tk.Frame(parent, bg=couleur, height=1)
+
+# ─── PAGE: ACCUEIL ───────────────────────────────────────────────────────────
+def page_accueil():
+    effacer_frame()
+    f = etat["frame_principale"]
+
+    # Hero section
+    hero = tk.Frame(f, bg=C_FOND)
+    hero.pack(fill="x", pady=(40, 20))
+
+    tk.Label(hero, text="◈", bg=C_FOND, fg=C_BOUTON,
+             font=("Helvetica", 48)).pack()
+    tk.Label(hero, text="JEU DE NIM", bg=C_FOND, fg=C_TEXTE,
+             font=("Helvetica", 36, "bold")).pack()
+    tk.Label(hero, text="IA · Stratégie · Statistiques",
+             bg=C_FOND, fg=C_TEXTE_ALT, font=("Helvetica", 13)).pack(pady=(4, 0))
+
+    # Règle du jeu rapide
+    regles = tk.Frame(f, bg=C_PANNEAU, padx=30, pady=16)
+    regles.pack(pady=20, ipadx=10)
+    tk.Label(regles, text="Le dernier joueur à prendre un objet perd.",
+             bg=C_PANNEAU, fg=C_PILE, font=("Helvetica", 12, "italic")).pack()
+
+    # Boutons principaux
+    btns = tk.Frame(f, bg=C_FOND)
+    btns.pack(pady=10)
+
+    creer_btn(btns, "▶  Nouvelle Partie", page_config_partie,
+              taille=13, padx=40, pady=12).grid(row=0, column=0, padx=10, pady=6)
+    creer_btn(btns, "👤  Profils & Stats", page_profils,
+              couleur=C_ACCENT, taille=13, padx=40, pady=12).grid(row=0, column=1, padx=10, pady=6)
+    creer_btn(btns, "🏆  Classement", page_classement,
+              couleur=C_ACCENT, taille=13, padx=40, pady=12).grid(row=1, column=0, padx=10, pady=6)
+    creer_btn(btns, "📊  Statistiques", page_stats,
+              couleur=C_ACCENT, taille=13, padx=40, pady=12).grid(row=1, column=1, padx=10, pady=6)
+
+    # Niveaux IA preview
+    niveaux_frame = creer_carte(f, titre="Niveaux de l'IA disponibles")
+    niveaux_frame.pack(pady=20, padx=60, fill="x")
+
+    niveaux = [("1", "Débutant", C_SUCCES), ("2", "Intermédiaire", C_PILE),
+               ("3", "Avancé (Minimax)", C_BOUTON), ("4", "Expert (NimSum)", C_OR)]
+    grid = tk.Frame(niveaux_frame, bg=C_PANNEAU)
+    grid.pack(padx=15, pady=10)
+    for i, (num, nom, col) in enumerate(niveaux):
+        card = tk.Frame(grid, bg=C_ACCENT, padx=16, pady=10)
+        card.grid(row=0, column=i, padx=6)
+        tk.Label(card, text=f"Niveau {num}", bg=C_ACCENT, fg=col,
+                 font=("Helvetica", 10, "bold")).pack()
+        tk.Label(card, text=nom, bg=C_ACCENT, fg=C_TEXTE,
+                 font=("Helvetica", 9)).pack()
+
+# ─── PAGE: CONFIG PARTIE ─────────────────────────────────────────────────────
+def page_config_partie():
+    effacer_frame()
+    f = etat["frame_principale"]
+
+    tk.Label(f, text="⚙  Configuration de la Partie", bg=C_FOND, fg=C_TEXTE,
+             font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
+
+    # Mode de jeu
+    mode_frame = creer_carte(f, titre="Mode de jeu")
+    mode_frame.pack(padx=60, fill="x", pady=8)
+
+    mode_var = tk.StringVar(value="JcIA")
+    etat["mode_var"] = mode_var
+
+    modes_inner = tk.Frame(mode_frame, bg=C_PANNEAU)
+    modes_inner.pack(padx=15, pady=10, anchor="w")
+
+    def style_radio(rb, actif):
+        rb.config(bg=C_PANNEAU if not actif else C_ACCENT,
+                  fg=C_BOUTON if actif else C_TEXTE_ALT,
+                  selectcolor=C_PANNEAU if not actif else C_ACCENT)
+
+    rb1 = tk.Radiobutton(modes_inner, text="🤖  Joueur vs IA",
+                          variable=mode_var, value="JcIA",
+                          bg=C_PANNEAU, fg=C_TEXTE, selectcolor=C_PANNEAU,
+                          font=F_NORMAL, activebackground=C_PANNEAU,
+                          command=lambda: toggle_mode_widgets())
+    rb1.pack(side="left", padx=(0, 20))
+    rb2 = tk.Radiobutton(modes_inner, text="👥  Joueur vs Joueur",
+                          variable=mode_var, value="JcJ",
+                          bg=C_PANNEAU, fg=C_TEXTE, selectcolor=C_PANNEAU,
+                          font=F_NORMAL, activebackground=C_PANNEAU,
+                          command=lambda: toggle_mode_widgets())
+    rb2.pack(side="left")
+
+    # Niveau IA
+    ia_frame = creer_carte(f, titre="Niveau de l'IA")
+    ia_frame.pack(padx=60, fill="x", pady=8)
+    etat["ia_frame_ref"] = ia_frame
+
+    niveau_var = tk.IntVar(value=4)
+    etat["niveau_var"] = niveau_var
+
+    ia_inner = tk.Frame(ia_frame, bg=C_PANNEAU)
+    ia_inner.pack(padx=15, pady=10, anchor="w")
+
+    niveaux_defs = [(1,"Débutant",C_SUCCES),(2,"Intermédiaire",C_PILE),
+                    (3,"Avancé",C_BOUTON),(4,"Expert",C_OR)]
+    for val, nom, col in niveaux_defs:
+        rb = tk.Radiobutton(ia_inner, text=f"  {val}. {nom}",
+                             variable=niveau_var, value=val,
+                             bg=C_PANNEAU, fg=col, selectcolor=C_PANNEAU,
+                             font=("Helvetica", 11), activebackground=C_PANNEAU)
+        rb.pack(side="left", padx=8)
+
+    # Joueurs
+    joueurs_frame = creer_carte(f, titre="Joueurs")
+    joueurs_frame.pack(padx=60, fill="x", pady=8)
+
+    inner = tk.Frame(joueurs_frame, bg=C_PANNEAU)
+    inner.pack(padx=15, pady=10, fill="x")
+
+    tk.Label(inner, text="Joueur 1 :", bg=C_PANNEAU, fg=C_TEXTE_ALT,
+             font=F_NORMAL).grid(row=0, column=0, sticky="w", padx=(0, 10), pady=6)
+    entry_j1 = creer_entry(inner, largeur=22)
+    entry_j1.grid(row=0, column=1, sticky="w")
+    entry_j1.insert(0, etat["joueur1"]["nom"] if etat["joueur1"] else "")
+    etat["entry_j1"] = entry_j1
+
+    tk.Label(inner, text="Joueur 2 :", bg=C_PANNEAU, fg=C_TEXTE_ALT,
+             font=F_NORMAL).grid(row=1, column=0, sticky="w", padx=(0, 10), pady=6)
+    entry_j2 = creer_entry(inner, largeur=22)
+    entry_j2.grid(row=1, column=1, sticky="w")
+    entry_j2.insert(0, etat["joueur2"]["nom"] if etat["joueur2"] else "")
+    etat["entry_j2"] = entry_j2
+
+    etat["label_j2"] = tk.Label(inner, text="(optionnel en mode JcJ)",
+                                  bg=C_PANNEAU, fg=C_TEXTE_ALT, font=F_SMALL)
+    etat["label_j2"].grid(row=1, column=2, padx=8)
+
+    # Piles initiales
+    piles_frame = creer_carte(f, titre="Configuration des piles (3 piles)")
+    piles_frame.pack(padx=60, fill="x", pady=8)
+
+    piles_inner = tk.Frame(piles_frame, bg=C_PANNEAU)
+    piles_inner.pack(padx=15, pady=10, anchor="w")
+
+    entries_piles = []
+    for i, val in enumerate([3, 5, 7]):
+        tk.Label(piles_inner, text=f"Pile {i+1} :", bg=C_PANNEAU,
+                 fg=C_PILE, font=F_NORMAL).grid(row=0, column=i*2, padx=(0,6))
+        e = creer_entry(piles_inner, largeur=5)
+        e.insert(0, str(val))
+        e.grid(row=0, column=i*2+1, padx=(0, 20))
+        entries_piles.append(e)
+    etat["entries_piles"] = entries_piles
+
+    def toggle_mode_widgets():
+        mode = mode_var.get()
+        for w in ia_inner.winfo_children():
+            w.config(state="normal" if mode == "JcIA" else "disabled")
+
+    # Boutons
+    btn_frame = tk.Frame(f, bg=C_FOND)
+    btn_frame.pack(pady=20)
+
+    def lancer():
+        try:
+            piles = [int(e.get()) for e in etat["entries_piles"]]
+            if any(p <= 0 for p in piles):
+                raise ValueError("Les piles doivent être > 0")
+        except ValueError as ex:
+            messagebox.showerror("Erreur", f"Piles invalides : {ex}")
             return
-    else:
-        if not player1_var.get():
-            messagebox.showwarning("Erreur", "Choisissez un joueur.")
-            return
-    piles = [5, 4, 3]
-    current_player = 1
-    pile_var.set(1)
-    remove_var.set(1)
-    mettre_a_jour_piles()
-    mettre_a_jour_status(f"Partie lancée : {mode_label()} - Tour du joueur 1")
-    start_button.config(state="disabled")
-    remove_button.config(state="normal")
-    if mode_var.get() == 2 and current_player == 2:
-        root.after(300, ia_turn)
 
+        nom_j1 = etat["entry_j1"].get().strip() or "Joueur 1"
+        existe_j1, joueur1 = player_service.selectionner_joueur(nom_j1)
+        if not existe_j1:
+            ok, joueur1 = player_service.creer_profil(nom_j1)
+            if not ok:
+                messagebox.showerror("Erreur", joueur1)
+                return
+        etat["joueur1"] = {"id": joueur1[0], "nom": joueur1[1]}
 
-def mode_label():
-    return "Joueur vs Joueur" if mode_var.get() == 1 else "Joueur vs IA"
+        if mode_var.get() == "JcIA":
+            etat["joueur2"] = {"id": None, "nom": "IA"}
+        else:
+            nom_j2 = etat["entry_j2"].get().strip() or "Joueur 2"
+            existe_j2, joueur2 = player_service.selectionner_joueur(nom_j2)
+            if not existe_j2:
+                ok, joueur2 = player_service.creer_profil(nom_j2)
+                if not ok:
+                    messagebox.showerror("Erreur", joueur2)
+                    return
+            etat["joueur2"] = {"id": joueur2[0], "nom": joueur2[1]}
 
+        etat["mode_jeu"] = mode_var.get()
+        etat["niveau_ia"] = niveau_var.get()
+        etat["piles"] = piles[:]
+        etat["piles_initiales"] = piles[:]
+        etat["tour"] = 1
+        etat["nb_coups"] = 0
+        etat["debut_partie"] = time.time()
+        etat["pile_selectionnee"] = None
+        page_jeu()
+
+    creer_btn(btn_frame, "▶  Lancer la Partie", lancer,
+              taille=13, padx=40, pady=12).pack(side="left", padx=10)
+    creer_btn(btn_frame, "← Retour", page_accueil,
+              couleur=C_ACCENT, padx=20, pady=12).pack(side="left", padx=10)
+
+# ─── PAGE: JEU ───────────────────────────────────────────────────────────────
+piles_canvas = []
+pile_labels = []
+
+def page_jeu():
+    effacer_frame()
+    f = etat["frame_principale"]
+
+    etat["partie_en_cours"] = True
+
+    # Header
+    header = tk.Frame(f, bg=C_PANNEAU, pady=10)
+    header.pack(fill="x")
+
+    j1_nom = etat["joueur1"]["nom"]
+    j2_nom = etat["joueur2"]["nom"]
+
+    etat["lbl_j1"] = tk.Label(header, text=f"◉ {j1_nom}", bg=C_PANNEAU,
+                               fg=C_BOUTON, font=("Helvetica", 14, "bold"))
+    etat["lbl_j1"].grid(row=0, column=0, padx=30)
+
+    tk.Label(header, text="vs", bg=C_PANNEAU, fg=C_TEXTE_ALT,
+             font=("Helvetica", 12)).grid(row=0, column=1, padx=20)
+
+    etat["lbl_j2"] = tk.Label(header, text=f"◉ {j2_nom}", bg=C_PANNEAU,
+                               fg=C_TEXTE_ALT, font=("Helvetica", 14, "bold"))
+    etat["lbl_j2"].grid(row=0, column=2, padx=30)
+
+    etat["lbl_tour"] = tk.Label(header, text="", bg=C_PANNEAU, fg=C_OR,
+                                 font=("Helvetica", 11, "italic"))
+    etat["lbl_tour"].grid(row=1, column=0, columnspan=3, pady=(4, 0))
+
+    header.grid_columnconfigure(0, weight=1)
+    header.grid_columnconfigure(2, weight=1)
+
+    creer_separateur(f).pack(fill="x")
+
+    # Zone de jeu - piles visuelles
+    jeu_zone = tk.Frame(f, bg=C_FOND, pady=20)
+    jeu_zone.pack(fill="both", expand=True)
+
+    etat["piles_zone"] = jeu_zone
+    etat["pile_frames"] = []
+
+    dessiner_piles()
+
+    # Contrôles
+    ctrl = tk.Frame(f, bg=C_PANNEAU, pady=12)
+    ctrl.pack(fill="x")
+
+    tk.Label(ctrl, text="Nb d'objets à retirer :", bg=C_PANNEAU,
+             fg=C_TEXTE_ALT, font=F_NORMAL).pack(side="left", padx=(20, 8))
+
+    etat["spin_val"] = tk.IntVar(value=1)
+    spin = tk.Spinbox(ctrl, from_=1, to=99, width=5,
+                      textvariable=etat["spin_val"],
+                      bg=C_ACCENT, fg=C_TEXTE, buttonbackground=C_ACCENT,
+                      font=F_NORMAL, relief="flat")
+    spin.pack(side="left", padx=(0, 16))
+
+    creer_btn(ctrl, "✓  Jouer", jouer_coup,
+              padx=20, pady=6).pack(side="left", padx=8)
+    creer_btn(ctrl, "↩  Abandonner", confirmer_abandon,
+              couleur=C_ACCENT, padx=16, pady=6).pack(side="left", padx=4)
+
+    # Status bar
+    etat["status_bar"] = tk.Label(f, text="", bg=C_ACCENT, fg=C_TEXTE,
+                                   font=F_NORMAL, pady=6)
+    etat["status_bar"].pack(fill="x")
+
+    actualiser_tour()
 
 def dessiner_piles():
-    """Affiche les piles sous forme de blocs"""
-    piles_canvas.delete("all")
-    couleurs = ["#FF6B6B", "#4ECDC4", "#FFE66D"]  # Rouge, Turquoise, Jaune
-    x_start = 40
-    spacing = 120
-    block_width = 30
-    block_height = 25
-    
-    for pile_idx, (pile_count, couleur) in enumerate(zip(piles, couleurs)):
-        x = x_start + pile_idx * spacing
-        y_start = 180
-        
-        # Titre de la pile
-        piles_canvas.create_text(x + block_width // 2, y_start - 30, 
-                                text=f"Pile {pile_idx + 1}\n({pile_count})", 
-                                font=("Helvetica", 12, "bold"), fill="#333333")
-        
-        # Dessiner les blocs
-        for i in range(pile_count):
-            y = y_start - (i * (block_height + 5))
-            piles_canvas.create_rectangle(x, y, x + block_width, y + block_height,
-                                        fill=couleur, outline="#000000", width=2)
-            piles_canvas.create_text(x + block_width // 2, y + block_height // 2,
-                                    text=str(i + 1), font=("Helvetica", 10, "bold"), 
-                                    fill="white")
+    zone = etat["piles_zone"]
+    for w in zone.winfo_children():
+        w.destroy()
+    etat["pile_frames"] = []
 
+    container = tk.Frame(zone, bg=C_FOND)
+    container.pack(expand=True)
 
-def mettre_a_jour_piles():
-    piles_label.config(text=" | ".join(f"Pile {i+1} = {valeur}" for i, valeur in enumerate(piles)))
+    for i, nb in enumerate(etat["piles"]):
+        selected = (etat["pile_selectionnee"] == i)
+        pile_bg = C_PILE_SEL if selected else C_ACCENT
+        border_col = C_PILE_SEL if selected else C_BORDURE
+
+        pile_card = tk.Frame(container, bg=pile_bg, padx=20, pady=16,
+                              highlightbackground=border_col,
+                              highlightthickness=2)
+        pile_card.grid(row=0, column=i, padx=18, pady=10)
+
+        tk.Label(pile_card, text=f"Pile {i+1}", bg=pile_bg,
+                 fg=C_TEXTE_ALT if not selected else C_TEXTE,
+                 font=("Helvetica", 10, "bold")).pack()
+
+        # Objets visuels (cercles en unicode)
+        objets_frame = tk.Frame(pile_card, bg=pile_bg)
+        objets_frame.pack(pady=8)
+
+        couleur_obj = C_PILE_SEL if selected else C_PILE
+        if nb == 0:
+            tk.Label(objets_frame, text="∅", bg=pile_bg,
+                     fg=C_TEXTE_ALT, font=("Helvetica", 24)).pack()
+        else:
+            cols = 4
+            for j in range(nb):
+                r, c = divmod(j, cols)
+                tk.Label(objets_frame, text="⬤", bg=pile_bg,
+                         fg=couleur_obj, font=("Helvetica", 16)).grid(
+                    row=r, column=c, padx=2, pady=1)
+
+        tk.Label(pile_card, text=f"({nb} objet{'s' if nb != 1 else ''})",
+                 bg=pile_bg, fg=C_TEXTE_ALT,
+                 font=("Helvetica", 9)).pack()
+
+        def make_click(idx):
+            def click(e):
+                if etat["tour"] == 1 or etat["mode_jeu"] == "JcJ":
+                    etat["pile_selectionnee"] = idx
+                    dessiner_piles()
+            return click
+
+        pile_card.bind("<Button-1>", make_click(i))
+        for child in pile_card.winfo_children():
+            child.bind("<Button-1>", make_click(i))
+        etat["pile_frames"].append(pile_card)
+
+def actualiser_tour():
+    tour = etat["tour"]
+    j1 = etat["joueur1"]["nom"]
+    j2 = etat["joueur2"]["nom"]
+
+    if tour == 1:
+        etat["lbl_j1"].config(fg=C_BOUTON)
+        etat["lbl_j2"].config(fg=C_TEXTE_ALT)
+        etat["lbl_tour"].config(text=f"⟶ Tour de {j1}")
+        etat["status_bar"].config(text=f"Sélectionnez une pile puis choisissez le nombre d'objets à retirer.")
+    else:
+        etat["lbl_j1"].config(fg=C_TEXTE_ALT)
+        etat["lbl_j2"].config(fg=C_BOUTON)
+        etat["lbl_tour"].config(text=f"⟶ Tour de {j2}")
+        if etat["mode_jeu"] == "JcIA":
+            etat["status_bar"].config(text="L'IA réfléchit...")
+            etat["root"].after(700, jouer_ia_auto)
+
+def jouer_coup():
+    if not etat["partie_en_cours"]:
+        return
+
+    if etat["pile_selectionnee"] is None:
+        messagebox.showwarning("Sélection requise", "Cliquez sur une pile pour la sélectionner d'abord.")
+        return
+
+    idx = etat["pile_selectionnee"]
+    try:
+        nb = int(etat["spin_val"].get())
+    except:
+        nb = 1
+
+    if nb < 1:
+        messagebox.showerror("Erreur", "Vous devez retirer au moins 1 objet.")
+        return
+    if nb > etat["piles"][idx]:
+        messagebox.showerror("Erreur", f"La pile {idx+1} n'a que {etat['piles'][idx]} objets.")
+        return
+    if etat["piles"][idx] == 0:
+        messagebox.showerror("Erreur", "Cette pile est vide.")
+        return
+
+    etat["piles"][idx] -= nb
+    etat["nb_coups"] += 1
+    etat["pile_selectionnee"] = None
     dessiner_piles()
-    pile = pile_var.get() - 1
-    if 0 <= pile < len(piles):
-        max_remove = max(1, piles[pile])
-        remove_spinbox.config(to=max_remove)
-        if remove_var.get() > max_remove:
-            remove_var.set(max_remove)
-    else:
-        remove_spinbox.config(to=1)
-        remove_var.set(1)
 
-
-def mettre_a_jour_status(message):
-    winner_label.config(text=message)
-
-
-def remove_matches():
-    global current_player
-    pile_index = pile_var.get() - 1
-    if pile_index < 0 or pile_index >= len(piles):
-        messagebox.showwarning("Erreur", "Choisissez une pile valide.")
+    if partie_terminee():
+        finir_partie(perdant=etat["tour"])
         return
-    if piles[pile_index] == 0:
-        messagebox.showwarning("Erreur", "La pile choisie est vide.")
+
+    etat["tour"] = 2 if etat["tour"] == 1 else 1
+    actualiser_tour()
+
+def jouer_ia_auto():
+    if not etat["partie_en_cours"]:
         return
-    remove_amount = remove_var.get()
-    if remove_amount < 1 or remove_amount > piles[pile_index]:
-        messagebox.showwarning("Erreur", "Nombre d'allumettes invalide.")
+    idx, nb = jouer_ia(etat["piles"], etat["niveau_ia"])
+    nom_ia = etat["joueur2"]["nom"]
+    etat["piles"][idx] -= nb
+    etat["nb_coups"] += 1
+    etat["pile_selectionnee"] = idx
+    dessiner_piles()
+    etat["status_bar"].config(
+        text=f"L'IA retire {nb} objet(s) de la pile {idx+1}."
+    )
+
+    if partie_terminee():
+        etat["root"].after(400, lambda: finir_partie(perdant=2))
         return
-    piles[pile_index] -= remove_amount
-    mettre_a_jour_piles()
-    if sum(piles) == 0:
-        declare_winner()
-        return
-    if mode_var.get() == 2 and current_player == 1:
-        current_player = 2
-        mettre_a_jour_status("Tour de l'IA...")
-        root.after(500, ia_turn)
-    else:
-        current_player = 1 if current_player == 2 else 2
-        mettre_a_jour_status(f"Tour du joueur {current_player}")
 
+    def apres_ia():
+        etat["pile_selectionnee"] = None
+        etat["tour"] = 1
+        dessiner_piles()
+        actualiser_tour()
 
-def ia_turn():
-    global current_player
-    if sum(piles) == 0:
-        return
-    pile_index, remove_amount = calculate_ia_move()
-    piles[pile_index] -= remove_amount
-    mettre_a_jour_piles()
-    if sum(piles) == 0:
-        declare_winner()
-        return
-    current_player = 1
-    mettre_a_jour_status("Tour du joueur 1")
+    etat["root"].after(500, apres_ia)
 
+def finir_partie(perdant):
+    etat["partie_en_cours"] = False
+    duree = int(time.time() - etat["debut_partie"]) if etat["debut_partie"] else 0
+    gagnant = perdant
+    nom_gagnant = etat["joueur1"]["nom"] if gagnant == 1 else etat["joueur2"]["nom"]
+    nom_perdant = etat["joueur1"]["nom"] if perdant == 2 else etat["joueur2"]["nom"]
 
-def calculate_ia_move():
-    xor = 0
-    for valeur in piles:
-        xor ^= valeur
-    if xor == 0:
-        for i, valeur in enumerate(piles):
-            if valeur > 0:
-                return i, 1
-    for i, valeur in enumerate(piles):
-        cible = valeur ^ xor
-        if cible < valeur:
-            return i, valeur - cible
-    non_empty = [(i, valeur) for i, valeur in enumerate(piles) if valeur > 0]
-    i, valeur = random.choice(non_empty)
-    return i, random.randint(1, valeur)
+    joueur1_id = etat["joueur1"].get("id")
+    joueur2_id = etat["joueur2"].get("id")
 
+    if joueur1_id is not None and joueur2_id is not None:
+        try:
+            db.enregistrer_partie(
+                joueur1_id,
+                joueur2_id,
+                etat["mode_jeu"],
+                etat["niveau_ia"],
+                etat["piles_initiales"],
+                joueur1_id if gagnant == 1 else joueur2_id,
+                joueur1_id if perdant == 1 else joueur2_id,
+                duree,
+                etat["nb_coups"]
+            )
+        except Exception:
+            pass
 
-def declare_winner():
-    winner = "IA" if mode_var.get() == 2 and current_player == 2 else f"Joueur {current_player}"
-    if mode_var.get() == 1:
-        winner_name = player1_var.get() if current_player == 1 else player2_var.get()
-    else:
-        winner_name = "IA" if current_player == 2 else player1_var.get()
-    loser_name = player2_var.get() if current_player == 1 else player1_var.get() if mode_var.get() == 1 else player1_var.get()
-    if winner_name != "IA":
-        players[winner_name]["wins"] += 1
-        players[winner_name]["games"] += 1
-    if loser_name in players:
-        players[loser_name]["losses"] += 1
-        players[loser_name]["games"] += 1
-    history_entry = f"{winner_name} a gagné ({mode_label()}) avec piles {piles}."
-    history.append(history_entry)
-    mettre_a_jour_history()
-    mettre_a_jour_stats()
-    mettre_a_jour_status(f"Partie terminée. Vainqueur : {winner_name}")
-    start_button.config(state="normal")
-    remove_button.config(state="disabled")
+        try:
+            if gagnant == 1:
+                db.mettre_a_jour_stats(joueur1_id, victoire=1, points=10)
+                db.mettre_a_jour_stats(joueur2_id, defaite=1, points=-5)
+            else:
+                db.mettre_a_jour_stats(joueur2_id, victoire=1, points=10)
+                db.mettre_a_jour_stats(joueur1_id, defaite=1, points=-5)
+        except Exception:
+            pass
+    elif joueur1_id is not None and joueur2_id is None:
+        try:
+            if gagnant == 1:
+                db.mettre_a_jour_stats(joueur1_id, victoire=1, points=10)
+            else:
+                db.mettre_a_jour_stats(joueur1_id, defaite=1, points=-5)
+        except Exception:
+            pass
 
+    page_resultat(nom_gagnant, nom_perdant, duree)
 
-def mettre_a_jour_stats():
-    lines = ["Statistiques des joueurs:"]
-    for nom, stats in players.items():
-        lines.append(f"{nom} - Victoires: {stats['wins']} | Défaites: {stats['losses']} | Parties: {stats['games']}")
-    stats_label.config(text="\n".join(lines))
+def confirmer_abandon():
+    if messagebox.askyesno("Abandonner", "Voulez-vous vraiment abandonner la partie ?"):
+        etat["partie_en_cours"] = False
+        page_accueil()
 
+# ─── PAGE: RÉSULTAT ──────────────────────────────────────────────────────────
+def page_resultat(gagnant, perdant, duree):
+    effacer_frame()
+    f = etat["frame_principale"]
 
-def mettre_a_jour_history():
-    history_text.config(state="normal")
-    history_text.delete(1.0, tk.END)
-    for ligne in history[-10:]:
-        history_text.insert(tk.END, ligne + "\n")
-    history_text.config(state="disabled")
+    tk.Frame(f, bg=C_FOND, height=30).pack()
 
+    # Trophée animé (simple pulsation via couleur)
+    trophy_lbl = tk.Label(f, text="🏆", bg=C_FOND, font=("Helvetica", 72))
+    trophy_lbl.pack()
 
-def changer_mode(*args):
-    if mode_var.get() == 1:
-        player2_menu.config(state="normal")
-    else:
-        player2_menu.config(state="disabled")
-    mettre_a_jour_piles()
-    mettre_a_jour_status(f"Mode choisi: {mode_label()}")
+    tk.Label(f, text="Partie Terminée !", bg=C_FOND, fg=C_OR,
+             font=("Helvetica", 26, "bold")).pack(pady=(10, 0))
 
+    # Résultat
+    res_frame = creer_carte(f)
+    res_frame.pack(pady=20, padx=100, fill="x")
 
-def construire_interface():
-    global root, mode_var, player1_var, player2_var, pile_var, remove_var
-    global player_name_entry, player_listbox, stats_label, history_text, piles_label, winner_label, start_button, remove_button, player1_menu, player2_menu, remove_spinbox, piles_canvas
-    
-    root = tk.Tk()
-    root.title("🎮 Jeu de Nim - Interface Graphique")
-    root.geometry("1000x700")
-    root.resizable(False, False)
-    root.config(bg="#0F3460")
-    
-    # ===== HEADER =====
-    header_frame = tk.Frame(root, bg="#E94560", height=60)
-    header_frame.pack(fill="x", padx=0, pady=0)
-    header_frame.pack_propagate(False)
-    
-    header = tk.Label(header_frame, text="🎮 JEU DE NIM 🎮", font=("Helvetica", 28, "bold"), 
-                     bg="#E94560", fg="white")
-    header.pack(pady=10)
-    
-    # ===== MAIN CONTENT =====
-    main_frame = tk.Frame(root, bg="#0F3460")
-    main_frame.pack(fill="both", expand=True, padx=15, pady=15)
-    
-    # ===== LEFT PANEL =====
-    left_frame = tk.LabelFrame(main_frame, text="⚙️  CONFIGURATION", padx=15, pady=15, 
-                               bg="#1A4D7A", fg="white", font=("Helvetica", 11, "bold"))
-    left_frame.pack(side="left", fill="y", padx=(0, 10))
-    
-    # Ajouter joueur
-    tk.Label(left_frame, text="Nom joueur :", bg="#1A4D7A", fg="white", 
-            font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(10, 5))
-    player_name_entry = tk.Entry(left_frame, width=24, font=("Helvetica", 10), 
-                                bg="#E8F4F8", fg="#333333")
-    player_name_entry.pack(anchor="w", pady=(0, 8))
-    tk.Button(left_frame, text="➕ Ajouter joueur", command=ajouter_joueur, width=20,
-             bg="#16C784", fg="white", font=("Helvetica", 10, "bold"),
-             activebackground="#12A970", relief="flat", padx=10, pady=5).pack(anchor="w", pady=(0, 15))
-    
+    tk.Label(res_frame, text="Gagnant", bg=C_PANNEAU, fg=C_TEXTE_ALT,
+             font=F_SMALL).pack(pady=(16, 0))
+    tk.Label(res_frame, text=gagnant, bg=C_PANNEAU, fg=C_SUCCES,
+             font=("Helvetica", 22, "bold")).pack()
+
+    creer_separateur(res_frame, C_BORDURE).pack(fill="x", padx=20, pady=10)
+
+    # Stats de la partie
+    stats_inner = tk.Frame(res_frame, bg=C_PANNEAU)
+    stats_inner.pack(pady=(0, 16))
+
+    infos = [
+        ("Nombre de coups", str(etat["nb_coups"])),
+        ("Durée", f"{duree}s"),
+        ("Piles initiales", ",".join(str(p) for p in etat["piles_initiales"])),
+        ("Mode", etat["mode_jeu"]),
+    ]
+    for i, (k, v) in enumerate(infos):
+        tk.Label(stats_inner, text=k+":", bg=C_PANNEAU, fg=C_TEXTE_ALT,
+                 font=F_NORMAL).grid(row=i, column=0, sticky="w", padx=(20, 10), pady=3)
+        tk.Label(stats_inner, text=v, bg=C_PANNEAU, fg=C_TEXTE,
+                 font=("Helvetica", 11, "bold")).grid(row=i, column=1, sticky="w")
+
+    # Boutons
+    btn_frame = tk.Frame(f, bg=C_FOND)
+    btn_frame.pack(pady=20)
+
+    creer_btn(btn_frame, "▶  Rejouer", page_config_partie,
+              taille=13, padx=30, pady=10).pack(side="left", padx=10)
+    creer_btn(btn_frame, "🏠  Accueil", page_accueil,
+              couleur=C_ACCENT, taille=13, padx=30, pady=10).pack(side="left", padx=10)
+
+# ─── PAGE: PROFILS ───────────────────────────────────────────────────────────
+def page_profils():
+    effacer_frame()
+    f = etat["frame_principale"]
+
+    tk.Label(f, text="👤  Gestion des Profils", bg=C_FOND, fg=C_TEXTE,
+             font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
+
+    # Créer un profil
+    creer_frame = creer_carte(f, titre="Créer un profil")
+    creer_frame.pack(padx=60, fill="x", pady=8)
+
+    inner = tk.Frame(creer_frame, bg=C_PANNEAU)
+    inner.pack(padx=15, pady=10, anchor="w")
+
+    tk.Label(inner, text="Nom :", bg=C_PANNEAU, fg=C_TEXTE_ALT,
+             font=F_NORMAL).pack(side="left", padx=(0, 10))
+    entry_nom = creer_entry(inner, largeur=22)
+    entry_nom.pack(side="left", padx=(0, 12))
+
+    msg_creation = tk.Label(inner, text="", bg=C_PANNEAU, fg=C_SUCCES, font=F_NORMAL)
+    msg_creation.pack(side="left")
+
+    def creer():
+        nom = entry_nom.get().strip()
+        if not nom:
+            msg_creation.config(text="Nom requis.", fg=C_ERREUR)
+            return
+        ok, resultat = player_service.creer_profil(nom)
+        if ok:
+            msg_creation.config(text=f"Profil '{nom}' créé !", fg=C_SUCCES)
+            entry_nom.delete(0, "end")
+            rafraichir_liste()
+        else:
+            msg_creation.config(text=resultat, fg=C_ERREUR)
+
+    creer_btn(inner, "+ Créer", creer, padx=14, pady=5).pack(side="left")
+
     # Liste des joueurs
-    tk.Label(left_frame, text="Joueurs existants :", bg="#1A4D7A", fg="white",
-            font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(10, 5))
-    player_listbox = tk.Listbox(left_frame, width=28, height=8, font=("Helvetica", 9),
-                               bg="#E8F4F8", fg="#333333", highlightthickness=0)
-    player_listbox.pack(anchor="w", pady=(0, 15))
-    
-    # Mode de jeu
-    mode_var = tk.IntVar(value=1)
-    tk.Label(left_frame, text="Mode de jeu :", bg="#1A4D7A", fg="white",
-            font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(10, 8))
-    tk.Radiobutton(left_frame, text="👥 Joueur vs Joueur", variable=mode_var, value=1, 
-                  command=changer_mode, bg="#1A4D7A", fg="white", 
-                  font=("Helvetica", 10), activebackground="#1A4D7A", activeforeground="white",
-                  selectcolor="#16C784").pack(anchor="w", pady=4)
-    tk.Radiobutton(left_frame, text="🤖 Joueur vs IA", variable=mode_var, value=2, 
-                  command=changer_mode, bg="#1A4D7A", fg="white",
-                  font=("Helvetica", 10), activebackground="#1A4D7A", activeforeground="white",
-                  selectcolor="#16C784").pack(anchor="w", pady=4)
-    
-    # Sélection des joueurs
-    player1_var = tk.StringVar(value="")
-    player2_var = tk.StringVar(value="")
-    
-    tk.Label(left_frame, text="Joueur 1 :", bg="#1A4D7A", fg="white",
-            font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(15, 5))
-    player1_menu = tk.OptionMenu(left_frame, player1_var, "")
-    player1_menu.config(width=20, bg="#E8F4F8", fg="#333333", font=("Helvetica", 10),
-                       activebackground="#16C784", activeforeground="white")
-    player1_menu.pack(anchor="w", pady=(0, 10))
-    
-    tk.Label(left_frame, text="Joueur 2 / IA :", bg="#1A4D7A", fg="white",
-            font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(0, 5))
-    player2_menu = tk.OptionMenu(left_frame, player2_var, "")
-    player2_menu.config(width=20, bg="#E8F4F8", fg="#333333", font=("Helvetica", 10),
-                       activebackground="#16C784", activeforeground="white")
-    player2_menu.pack(anchor="w", pady=(0, 15))
-    
-    # Bouton Démarrer - SUPER MAGNIFIQUE
-    start_button = tk.Button(left_frame, text="🚀 DÉMARRER LA PARTIE 🚀", command=new_game, 
-                            width=26, bg="#E94560", fg="white", font=("Helvetica", 14, "bold"),
-                            activebackground="#D6344A", activeforeground="#FFE66D",
-                            relief="raised", bd=4, padx=20, pady=20,
-                            cursor="hand2", highlightthickness=2, highlightbackground="#FFE66D")
-    start_button.pack(pady=(15, 0), fill="x", padx=10)
-    
-    # ===== CENTER PANEL =====
-    center_frame = tk.LabelFrame(main_frame, text="🎯 PILES DE JEU", padx=15, pady=15,
-                                bg="#1A4D7A", fg="white", font=("Helvetica", 11, "bold"))
-    center_frame.pack(side="left", fill="both", expand=True, padx=10)
-    
-    # Canvas pour afficher les piles
-    piles_canvas = tk.Canvas(center_frame, width=380, height=250, bg="#E8F4F8",
-                            highlightthickness=0, relief="flat")
-    piles_canvas.pack(pady=(0, 15))
-    
-    # Texte informatif
-    piles_label = tk.Label(center_frame, text="Pile 1 = 5 | Pile 2 = 4 | Pile 3 = 3",
-                          font=("Helvetica", 11, "bold"), bg="#1A4D7A", fg="#FFE66D")
-    piles_label.pack(pady=(0, 15))
-    
-    # Contrôles
-    control_frame = tk.Frame(center_frame, bg="#1A4D7A")
-    control_frame.pack(pady=(0, 15))
-    
-    tk.Label(control_frame, text="Pile :", bg="#1A4D7A", fg="white",
-            font=("Helvetica", 10, "bold")).grid(row=0, column=0, padx=8, pady=5)
-    pile_var = tk.IntVar(value=1)
-    pile_menu = tk.Spinbox(control_frame, from_=1, to=3, width=6, textvariable=pile_var,
-                          command=mettre_a_jour_piles, font=("Helvetica", 10),
-                          bg="#E8F4F8", fg="#333333", highlightthickness=0)
-    pile_menu.grid(row=0, column=1, padx=8, pady=5)
-    
-    tk.Label(control_frame, text="Retirer :", bg="#1A4D7A", fg="white",
-            font=("Helvetica", 10, "bold")).grid(row=0, column=2, padx=8, pady=5)
-    remove_var = tk.IntVar(value=1)
-    remove_spinbox = tk.Spinbox(control_frame, from_=1, to=5, width=6, textvariable=remove_var,
-                               font=("Helvetica", 10), bg="#E8F4F8", fg="#333333",
-                               highlightthickness=0)
-    remove_spinbox.grid(row=0, column=3, padx=8, pady=5)
-    
-    # Bouton Retirer
-    remove_button = tk.Button(center_frame, text="✂️  Retirer les allumettes", command=remove_matches,
-                             width=28, bg="#16C784", fg="white", font=("Helvetica", 10, "bold"),
-                             activebackground="#12A970", state="disabled", relief="flat", padx=10, pady=8)
-    remove_button.pack(pady=(0, 15))
-    
-    # Status
-    winner_label = tk.Label(center_frame, text="Cliquez sur DÉMARRER pour commencer la partie.",
-                           font=("Helvetica", 11, "bold"), bg="#1A4D7A", fg="#FFE66D", wraplength=350)
-    winner_label.pack(pady=(10, 0))
-    
-    # ===== RIGHT PANEL =====
-    right_frame = tk.LabelFrame(main_frame, text="📊 STATISTIQUES & HISTORIQUE", padx=10, pady=10,
-                               bg="#1A4D7A", fg="white", font=("Helvetica", 11, "bold"))
-    right_frame.pack(side="left", fill="both", expand=True, padx=(10, 0))
-    
-    stats_label = tk.Label(right_frame, text="Statistiques des joueurs:", justify="left",
-                          anchor="nw", bg="#1A4D7A", fg="white", font=("Helvetica", 9))
-    stats_label.pack(fill="both", expand=True, pady=(0, 10))
-    
-    history_text = tk.Text(right_frame, height=14, width=35, state="disabled",
-                          font=("Helvetica", 9), bg="#E8F4F8", fg="#333333",
-                          highlightthickness=0)
-    history_text.pack(pady=(0, 10))
-    
-    # ===== FOOTER =====
-    bottom_frame = tk.Frame(root, bg="#0F3460")
-    bottom_frame.pack(fill="x", padx=15, pady=10)
-    
-    tk.Button(bottom_frame, text="🔄 Réinitialiser les scores", command=reset_stats,
-             width=25, bg="#FF6B6B", fg="white", font=("Helvetica", 10, "bold"),
-             activebackground="#E05555", relief="flat", padx=10, pady=8).pack(side="left", padx=5)
-    
-    tk.Button(bottom_frame, text="❌ Quitter", command=root.destroy,
-             width=25, bg="#666666", fg="white", font=("Helvetica", 10, "bold"),
-             activebackground="#555555", relief="flat", padx=10, pady=8).pack(side="right", padx=5)
-    
-    # Initialisation
-    pile_var.trace_add("write", lambda *args: mettre_a_jour_piles())
-    mettre_a_jour_players()
-    mettre_a_jour_stats()
-    mettre_a_jour_history()
-    dessiner_piles()
+    liste_frame = creer_carte(f, titre="Joueurs enregistrés")
+    liste_frame.pack(padx=60, fill="x", pady=8)
 
+    liste_inner = tk.Frame(liste_frame, bg=C_PANNEAU)
+    liste_inner.pack(padx=15, pady=10, fill="x")
+    etat["liste_profils_frame"] = liste_inner
 
-def reset_stats():
-    for stats in players.values():
-        stats["wins"] = 0
-        stats["losses"] = 0
-        stats["games"] = 0
-    history.clear()
-    mettre_a_jour_stats()
-    mettre_a_jour_history()
-    mettre_a_jour_status("Statistiques et historique réinitialisés.")
+    def rafraichir_liste():
+        for w in liste_inner.winfo_children():
+            w.destroy()
+        headers = ["Nom", "Score", "Victoires", "Défaites", "Actions"]
+        cols_w = [200, 80, 90, 80, 260]
+        for j, (h, w) in enumerate(zip(headers, cols_w)):
+            tk.Label(liste_inner, text=h, bg=C_PANNEAU, fg=C_PILE,
+                     font=("Helvetica", 10, "bold"), width=w//10).grid(
+                row=0, column=j, padx=8, pady=(0, 6))
 
+        joueurs = db.get_tous_joueurs()
+        for i, joueur in enumerate(joueurs):
+            bg = C_PANNEAU if i % 2 == 0 else C_ACCENT
+            joueur_id = joueur[0]
+            nom = joueur[1]
+            score = joueur[3]
+            victoires = joueur[4]
+            defaites = joueur[5]
+            vals = [nom, score, victoires, defaites]
+            for j, v in enumerate(vals):
+                tk.Label(liste_inner, text=str(v), bg=bg, fg=C_TEXTE,
+                         font=F_NORMAL).grid(row=i+1, column=j, padx=8, pady=4)
 
+            def make_choisir(jou):
+                def choisir():
+                    etat["joueur1"] = {"id": jou[0], "nom": jou[1]}
+                    messagebox.showinfo("Sélection", f"'{jou[1]}' sélectionné comme Joueur 1.")
+                return choisir
+
+            def make_stats(jou):
+                def voir():
+                    page_stats_joueur(jou)
+                return voir
+
+            def make_delete(jou):
+                def supprimer():
+                    if messagebox.askyesno("Supprimer", f"Supprimer le profil '{jou[1]}' ?"):
+                        db.supprimer_joueur(jou[0])
+                        rafraichir_liste()
+                return supprimer
+
+            btn_frame = tk.Frame(liste_inner, bg=bg)
+            btn_frame.grid(row=i+1, column=4, padx=4, pady=2, sticky="w")
+            creer_btn(btn_frame, "Choisir", make_choisir(joueur),
+                      couleur=C_ACCENT, padx=6, pady=2, taille=8).pack(side="left", padx=2)
+            creer_btn(btn_frame, "Stats", make_stats(joueur),
+                      couleur=C_BORDURE, padx=6, pady=2, taille=8).pack(side="left", padx=2)
+            creer_btn(btn_frame, "❌", make_delete(joueur),
+                      couleur=C_ERREUR, padx=6, pady=2, taille=8).pack(side="left", padx=2)
+
+    rafraichir_liste()
+
+    creer_btn(f, "← Retour", page_accueil,
+              couleur=C_ACCENT, padx=20, pady=8).pack(pady=16)
+
+# ─── PAGE: STATS JOUEUR ──────────────────────────────────────────────────────
+def page_stats_joueur(joueur):
+    effacer_frame()
+    f = etat["frame_principale"]
+
+    joueur_id = joueur[0]
+    stats = player_service.afficher_stats(joueur)
+
+    tk.Label(f, text=f"📊  Stats de {stats['nom']}", bg=C_FOND, fg=C_TEXTE,
+             font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
+
+    total = stats["total_parties"]
+    taux = stats["taux_victoire"]
+
+    # Badges stats
+    badges_frame = tk.Frame(f, bg=C_FOND)
+    badges_frame.pack(pady=10)
+
+    def badge(parent, label, valeur, couleur):
+        c = tk.Frame(parent, bg=C_PANNEAU, padx=24, pady=14)
+        c.pack(side="left", padx=10)
+        tk.Label(c, text=str(valeur), bg=C_PANNEAU, fg=couleur,
+                 font=("Helvetica", 28, "bold")).pack()
+        tk.Label(c, text=label, bg=C_PANNEAU, fg=C_TEXTE_ALT,
+                 font=("Helvetica", 9)).pack()
+
+    badge(badges_frame, "Score", stats["score"], C_OR)
+    badge(badges_frame, "Victoires", stats["victoires"], C_SUCCES)
+    badge(badges_frame, "Défaites", stats["defaites"], C_ERREUR)
+    badge(badges_frame, "Taux %", f"{taux}%", C_PILE)
+
+    # Barre de victoires
+    bar_frame = creer_carte(f, titre="Taux de victoire")
+    bar_frame.pack(padx=60, fill="x", pady=16)
+
+    bar_inner = tk.Frame(bar_frame, bg=C_PANNEAU)
+    bar_inner.pack(padx=15, pady=12, fill="x")
+
+    bar_bg = tk.Frame(bar_inner, bg=C_ACCENT, height=18)
+    bar_bg.pack(fill="x")
+    bar_bg.update_idletasks()
+
+    w_total = bar_bg.winfo_width() or 400
+    w_fill = int(w_total * taux / 100)
+    bar_fill = tk.Frame(bar_inner, bg=C_SUCCES, height=18, width=w_fill)
+    bar_fill.place(in_=bar_bg, x=0, y=0)
+
+    tk.Label(bar_inner, text=f"{taux}% de victoires sur {total} parties",
+             bg=C_PANNEAU, fg=C_TEXTE_ALT, font=F_SMALL).pack(anchor="w", pady=(6, 0))
+
+    # Historique
+    hist_frame = creer_carte(f, titre="Dernières parties")
+    hist_frame.pack(padx=60, fill="x", pady=8)
+
+    historiques = db.get_historique_joueur(joueur_id)
+    for i, p in enumerate(historiques):
+        bg = C_PANNEAU if i % 2 == 0 else C_ACCENT
+        row = tk.Frame(hist_frame, bg=bg)
+        row.pack(fill="x", padx=15, pady=1)
+
+        joueur1_id = p[1]
+        joueur2_id = p[2]
+        gagnant_id = p[6]
+        resultat = "Victoire" if gagnant_id == joueur_id else "Défaite"
+        col = C_SUCCES if resultat == "Victoire" else C_ERREUR
+        adversaire = p[12] if joueur1_id == joueur_id else p[11]
+        piles = p[5]
+        coups = p[10]
+        duree = p[9]
+        date = p[8].strftime("%Y-%m-%d") if hasattr(p[8], 'strftime') else str(p[8])
+
+        tk.Label(row, text=resultat, bg=bg, fg=col,
+                 font=("Helvetica", 10, "bold"), width=10).pack(side="left", padx=8, pady=4)
+        tk.Label(row, text=f"vs {adversaire}", bg=bg, fg=C_TEXTE,
+                 font=F_NORMAL, width=20, anchor="w").pack(side="left")
+        tk.Label(row, text=f"Piles: {piles}", bg=bg, fg=C_TEXTE_ALT,
+                 font=F_SMALL, width=14).pack(side="left")
+        tk.Label(row, text=f"{coups} coups | {duree}s", bg=bg,
+                 fg=C_TEXTE_ALT, font=F_SMALL).pack(side="left", padx=8)
+        tk.Label(row, text=date, bg=bg, fg=C_TEXTE_ALT,
+                 font=F_SMALL).pack(side="right", padx=8)
+
+    creer_btn(f, "← Retour", page_profils,
+              couleur=C_ACCENT, padx=20, pady=8).pack(pady=16)
+
+# ─── PAGE: CLASSEMENT ────────────────────────────────────────────────────────
+def page_classement():
+    effacer_frame()
+    f = etat["frame_principale"]
+
+    tk.Label(f, text="🏆  Classement Général", bg=C_FOND, fg=C_TEXTE,
+             font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
+
+    classement = db.get_tous_joueurs()
+
+    medailles = ["🥇", "🥈", "🥉"]
+    couleurs_rang = [C_OR, C_ARGENT, C_BRONZE]
+
+    podium_frame = tk.Frame(f, bg=C_FOND)
+    podium_frame.pack(pady=10)
+
+    for i, joueur in enumerate(classement[:3]):
+        col = couleurs_rang[i] if i < 3 else C_TEXTE
+        med = medailles[i] if i < 3 else f"#{i+1}"
+        card = tk.Frame(podium_frame, bg=C_PANNEAU, padx=24, pady=18)
+        card.grid(row=0, column=i, padx=12)
+        tk.Label(card, text=med, bg=C_PANNEAU, font=("Helvetica", 28)).pack()
+        tk.Label(card, text=joueur[1], bg=C_PANNEAU, fg=col,
+                 font=("Helvetica", 14, "bold")).pack()
+        tk.Label(card, text=f"{joueur[3]} pts", bg=C_PANNEAU,
+                 fg=C_TEXTE_ALT, font=F_NORMAL).pack()
+
+    creer_separateur(f).pack(fill="x", padx=40, pady=20)
+
+    # Tableau complet
+    table_frame = creer_carte(f, titre="Tableau complet")
+    table_frame.pack(padx=60, fill="x", pady=8)
+
+    headers = ["#", "Nom", "Score", "Victoires", "Défaites", "Taux %"]
+    inner = tk.Frame(table_frame, bg=C_PANNEAU)
+    inner.pack(padx=15, pady=10, fill="x")
+
+    for j, h in enumerate(headers):
+        tk.Label(inner, text=h, bg=C_PANNEAU, fg=C_PILE,
+                 font=("Helvetica", 10, "bold"), width=10).grid(
+            row=0, column=j, pady=(0, 6))
+
+    for i, joueur in enumerate(classement):
+        bg = C_PANNEAU if i % 2 == 0 else C_ACCENT
+        total = joueur[4] + joueur[5]
+        taux = f"{round(joueur[4]/total*100,1)}%" if total else "-"
+
+        vals = [f"#{i+1}", joueur[1], joueur[3], joueur[4], joueur[5], taux]
+        for j, v in enumerate(vals):
+            tk.Label(inner, text=str(v), bg=bg, fg=C_TEXTE,
+                     font=F_NORMAL, width=10).grid(row=i+1, column=j, pady=4)
+
+    creer_btn(f, "← Retour", page_accueil,
+              couleur=C_ACCENT, padx=20, pady=8).pack(pady=16)
+
+# ─── PAGE: STATISTIQUES GLOBALES ─────────────────────────────────────────────
+def page_stats():
+    effacer_frame()
+    f = etat["frame_principale"]
+
+    tk.Label(f, text="📊  Statistiques Globales", bg=C_FOND, fg=C_TEXTE,
+             font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
+
+    total_parties, moy, par_niveau, classement = db.get_statistiques_globales()
+    total_parties = total_parties[0] if isinstance(total_parties, tuple) else total_parties
+    total_joueurs = len(db.get_tous_joueurs())
+    meilleur = classement[0] if classement else ("", 0, 0, 0, 0)
+
+    # Chiffres clés
+    chiffres = tk.Frame(f, bg=C_FOND)
+    chiffres.pack(pady=10)
+
+    def stat_box(parent, label, val, col):
+        c = tk.Frame(parent, bg=C_PANNEAU, padx=28, pady=16)
+        c.pack(side="left", padx=10)
+        tk.Label(c, text=str(val), bg=C_PANNEAU, fg=col,
+                 font=("Helvetica", 30, "bold")).pack()
+        tk.Label(c, text=label, bg=C_PANNEAU, fg=C_TEXTE_ALT,
+                 font=("Helvetica", 9)).pack()
+
+    stat_box(chiffres, "Parties jouées", total_parties, C_PILE)
+    stat_box(chiffres, "Joueurs inscrits", total_joueurs, C_SUCCES)
+    stat_box(chiffres, "Meilleur score", meilleur[1], C_OR)
+
+    # Répartition niveaux IA
+    niveaux_frame = creer_carte(f, titre="Parties par niveau IA")
+    niveaux_frame.pack(padx=60, fill="x", pady=16)
+
+    niveaux_data = []
+    labels = {1: ("Débutant", C_SUCCES), 2: ("Intermédiaire", C_PILE),
+              3: ("Avancé", C_BOUTON), 4: ("Expert", C_OR)}
+    for niveau, nb in par_niveau:
+        nom, col = labels.get(niveau, (f"Niveau {niveau}", C_TEXTE))
+        niveaux_data.append((nom, nb, col))
+    if not niveaux_data:
+        niveaux_data = [("Débutant", 0, C_SUCCES), ("Intermédiaire", 0, C_PILE),
+                        ("Avancé", 0, C_BOUTON), ("Expert", 0, C_OR)]
+    max_val = max(n[1] for n in niveaux_data) or 1
+
+    chart_inner = tk.Frame(niveaux_frame, bg=C_PANNEAU)
+    chart_inner.pack(padx=20, pady=12)
+
+    for nom, val, col in niveaux_data:
+        row = tk.Frame(chart_inner, bg=C_PANNEAU)
+        row.pack(fill="x", pady=3)
+        tk.Label(row, text=nom, bg=C_PANNEAU, fg=C_TEXTE_ALT,
+                 font=F_NORMAL, width=16, anchor="w").pack(side="left")
+        bar_bg = tk.Frame(row, bg=C_ACCENT, height=20, width=300)
+        bar_bg.pack(side="left")
+        bar_w = int(300 * val / max_val)
+        bar = tk.Frame(bar_bg, bg=col, height=20, width=bar_w)
+        bar.place(x=0, y=0)
+        tk.Label(row, text=str(val), bg=C_PANNEAU, fg=col,
+                 font=("Helvetica", 10, "bold"), width=4).pack(side="left", padx=6)
+
+    creer_btn(f, "← Retour", page_accueil,
+              couleur=C_ACCENT, padx=20, pady=8).pack(pady=16)
+
+# ─── NAVIGATION SIDEBAR ──────────────────────────────────────────────────────
+def creer_sidebar(root):
+    sidebar = tk.Frame(root, bg=C_PANNEAU, width=180)
+    sidebar.pack(side="left", fill="y")
+    sidebar.pack_propagate(False)
+
+    # Logo
+    tk.Label(sidebar, text="NIM", bg=C_PANNEAU, fg=C_BOUTON,
+             font=("Helvetica", 24, "bold")).pack(pady=(24, 4))
+    tk.Label(sidebar, text="Stratégie & IA", bg=C_PANNEAU, fg=C_TEXTE_ALT,
+             font=("Helvetica", 8)).pack(pady=(0, 20))
+
+    creer_separateur(sidebar).pack(fill="x", padx=16, pady=0)
+
+    nav_items = [
+        ("🏠  Accueil",       page_accueil),
+        ("▶  Jouer",          page_config_partie),
+        ("👤  Profils",       page_profils),
+        ("🏆  Classement",    page_classement),
+        ("📊  Statistiques",  page_stats),
+    ]
+
+    for label, commande in nav_items:
+        btn = tk.Button(sidebar, text=label, command=commande,
+                        bg=C_PANNEAU, fg=C_TEXTE, font=("Helvetica", 11),
+                        relief="flat", anchor="w", padx=18, pady=9,
+                        cursor="hand2", activebackground=C_ACCENT,
+                        activeforeground=C_TEXTE, bd=0)
+        btn.pack(fill="x")
+        def on_enter(e, b=btn): b.config(bg=C_ACCENT, fg=C_BOUTON)
+        def on_leave(e, b=btn): b.config(bg=C_PANNEAU, fg=C_TEXTE)
+        btn.bind("<Enter>", on_enter)
+        btn.bind("<Leave>", on_leave)
+
+    # Version info en bas
+    tk.Label(sidebar, text="v1.0  •  NimGame", bg=C_PANNEAU,
+             fg=C_TEXTE_ALT, font=("Helvetica", 8)).pack(side="bottom", pady=12)
+
+    return sidebar
+
+# ─── MAIN ─────────────────────────────────────────────────────────────────────
 def main():
-    construire_interface()
+    try:
+        db.initialiser_bd()
+    except Exception:
+        messagebox.showerror("Erreur de base de données", "Impossible de se connecter à la base de données.")
+
+    root = tk.Tk()
+    root.title("Jeu de Nim — IA & Statistiques")
+    root.geometry("1000x680")
+    root.configure(bg=C_FOND)
+    root.resizable(True, True)
+    root.minsize(800, 560)
+
+    etat["root"] = root
+
+    # Layout principal
+    creer_sidebar(root)
+
+    # Scrollable main area
+    main_container = tk.Frame(root, bg=C_FOND)
+    main_container.pack(side="right", fill="both", expand=True)
+
+    canvas_scroll = tk.Canvas(main_container, bg=C_FOND, highlightthickness=0)
+    scrollbar = ttk.Scrollbar(main_container, orient="vertical",
+                               command=canvas_scroll.yview)
+    canvas_scroll.configure(yscrollcommand=scrollbar.set)
+
+    scrollbar.pack(side="right", fill="y")
+    canvas_scroll.pack(side="left", fill="both", expand=True)
+
+    frame_interne = tk.Frame(canvas_scroll, bg=C_FOND)
+    canvas_window = canvas_scroll.create_window((0, 0), window=frame_interne,
+                                                 anchor="nw")
+
+    def on_frame_configure(e):
+        canvas_scroll.configure(scrollregion=canvas_scroll.bbox("all"))
+
+    def on_canvas_configure(e):
+        canvas_scroll.itemconfig(canvas_window, width=e.width)
+
+    frame_interne.bind("<Configure>", on_frame_configure)
+    canvas_scroll.bind("<Configure>", on_canvas_configure)
+
+    def on_mousewheel(e):
+        canvas_scroll.yview_scroll(int(-1 * (e.delta / 120)), "units")
+
+    canvas_scroll.bind_all("<MouseWheel>", on_mousewheel)
+
+    etat["frame_principale"] = frame_interne
+
+    # Appliquer le style ttk
+    style = ttk.Style()
+    style.theme_use("clam")
+    style.configure("Vertical.TScrollbar",
+                    background=C_ACCENT, troughcolor=C_PANNEAU,
+                    arrowcolor=C_TEXTE_ALT, bordercolor=C_PANNEAU)
+
+    page_accueil()
     root.mainloop()
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
