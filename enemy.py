@@ -98,14 +98,13 @@ def ia_expert(piles):
                 return i,nb_retrait
     return ia_debutant(piles)
 
-def jouer_ia(piles,niveau):
+def jouer_ia(piles, niveau):
     if niveau==1:
         return ia_debutant(piles)
-    elif niveau==2:
+    if niveau==2:
         return ia_intermediaire(piles)
-    elif niveau==3:
+    if niveau==3:
         return ia_avance(piles)
-    elif niveau==4:
+    if niveau==4:
         return ia_expert(piles)
-    else:
-        return ia_debutant(piles)
+    return ia_debutant(piles)

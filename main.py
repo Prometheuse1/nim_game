@@ -1,101 +1,58 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, font
-import random
+from tkinter import ttk, messagebox
 import time
-from datetime import datetime
 import database as db
 import player as player_service
-import enemy as enemy_ai
+from enemy import jouer_ia
 
 # ─── PALETTE (from settings.py) ─────────────────────────────────────────────
-C_FOND       = "#1a1a2e"
-C_PANNEAU    = "#16213e"
-C_ACCENT     = "#0f3460"
-C_BOUTON     = "#e94560"
-C_BTN_HOVER  = "#c73652"
-C_TEXTE      = "#eaeaea"
-C_TEXTE_ALT  = "#a8a8b3"
-C_PILE       = "#f5a623"
-C_PILE_SEL   = "#ff6b35"
-C_SUCCES     = "#4caf50"
-C_ERREUR     = "#f44336"
-C_OR         = "#ffd700"
-C_ARGENT     = "#c0c0c0"
-C_BRONZE     = "#cd7f32"
-C_BORDURE    = "#0f3460"
-C_HIGHLIGHT  = "#e94560"
+C_FOND      ="#1a1a2e"
+C_PANNEAU   ="#16213e"
+C_ACCENT    ="#0f3460"
+C_BOUTON    ="#e94560"
+C_BTN_HOVER ="#c73652"
+C_TEXTE     ="#eaeaea"
+C_TEXTE_ALT ="#a8a8b3"
+C_PILE      ="#f5a623"
+C_PILE_SEL  ="#ff6b35"
+C_SUCCES    ="#4caf50"
+C_ERREUR    ="#f44336"
+C_OR        ="#ffd700"
+C_ARGENT    ="#c0c0c0"
+C_BRONZE    ="#cd7f32"
+C_BORDURE   ="#0f3460"
+C_HIGHLIGHT ="#e94560"
 
 # ─── FONTS ───────────────────────────────────────────────────────────────────
-F_TITRE      = ("Helvetica", 22, "bold")
-F_SOUS       = ("Helvetica", 14, "bold")
-F_NORMAL     = ("Helvetica", 11)
-F_SMALL      = ("Helvetica", 9)
-F_MONO       = ("Courier", 11)
-F_BIG        = ("Helvetica", 28, "bold")
-F_ICON       = ("Helvetica", 18, "bold")
+F_TITRE     =("Helvetica",22,"bold")
+F_SOUS      =("Helvetica",14,"bold")
+F_NORMAL    =("Helvetica",11)
+F_SMALL     =("Helvetica",9)
+F_MONO      =("Courier",11)
+F_BIG       =("Helvetica",28,"bold")
+F_ICON      =("Helvetica",18,"bold")
 
 # ─── STATE ───────────────────────────────────────────────────────────────────
-etat = {
-    "page_courante": "accueil",
-    "joueur1": None,
-    "joueur2": None,
-    "mode_jeu": "JcIA",
-    "niveau_ia": 4,
-    "piles": [3, 5, 7],
-    "piles_initiales": [3, 5, 7],
-    "tour": 1,
-    "partie_en_cours": False,
-    "debut_partie": None,
-    "nb_coups": 0,
-    "pile_selectionnee": None,
-    "frame_principale": None,
-    "root": None,
+etat={
+    "page_courante":"accueil",
+    "joueur1":None,
+    "joueur2":None,
+    "mode_jeu":"JcIA",
+    "niveau_ia":4,
+    "piles": [3,5,7],
+    "piles_initiales":[3,5,7],
+    "tour":1,
+    "partie_en_cours":False,
+    "debut_partie":None,
+    "nb_coups":0,
+    "pile_selectionnee":None,
+    "frame_principale":None,
+    "root":None,
 }
 
 # ─── HELPERS ─────────────────────────────────────────────────────────────────
-def nim_sum(piles):
-    r = 0
-    for p in piles:
-        r ^= p
-    return r
-
-def ia_expert_coup(piles):
-    ns = nim_sum(piles)
-    if ns != 0:
-        for i, taille in enumerate(piles):
-            cible = taille ^ ns
-            if cible < taille:
-                return i, taille - cible
-    non_vides = [(i, p) for i, p in enumerate(piles) if p > 0]
-    idx, taille = random.choice(non_vides)
-    return idx, random.randint(1, taille)
-
-def ia_debutant_coup(piles):
-    non_vides = [i for i, p in enumerate(piles) if p > 0]
-    idx = random.choice(non_vides)
-    return idx, random.randint(1, piles[idx])
-
-def ia_intermediaire_coup(piles):
-    non_vides = [(i, p) for i, p in enumerate(piles) if p > 0]
-    if len(non_vides) == 1:
-        return non_vides[0]
-    idx, taille = max(non_vides, key=lambda x: x[1])
-    nb = random.randint(max(1, taille // 3), max(1, taille * 2 // 3))
-    return idx, nb
-
-def jouer_ia(piles, niveau):
-    if niveau == 1:
-        return ia_debutant_coup(piles)
-    if niveau == 2:
-        return ia_intermediaire_coup(piles)
-    if niveau == 3:
-        return enemy_ai.jouer_ia(piles, niveau)
-    if niveau == 4:
-        return ia_expert_coup(piles)
-    return ia_debutant_coup(piles)
-
 def partie_terminee():
-    return all(p == 0 for p in etat["piles"])
+    return all(p==0 for p in etat["piles"])
 
 def effacer_frame():
     for w in etat["frame_principale"].winfo_children():
@@ -103,7 +60,7 @@ def effacer_frame():
 
 # ─── WIDGET FACTORIES ────────────────────────────────────────────────────────
 def creer_btn(parent, texte, commande, couleur=C_BOUTON, fg=C_TEXTE, padx=20, pady=8, taille=11, **kwargs):
-    btn = tk.Button(
+    btn=tk.Button(
         parent, text=texte, command=commande,
         bg=couleur, fg=fg, font=("Helvetica", taille, "bold"),
         relief="flat", cursor="hand2",
@@ -118,22 +75,18 @@ def creer_btn(parent, texte, commande, couleur=C_BOUTON, fg=C_TEXTE, padx=20, pa
     return btn
 
 def creer_label(parent, texte, taille=11, couleur=C_TEXTE, bold=False, **kwargs):
-    style = "bold" if bold else "normal"
-    return tk.Label(parent, text=texte, bg=C_FOND, fg=couleur,
-                    font=("Helvetica", taille, style), **kwargs)
+    style="bold" if bold else "normal"
+    return tk.Label(parent, text=texte, bg=C_FOND, fg=couleur,font=("Helvetica", taille, style), **kwargs)
 
 def creer_entry(parent, largeur=20, **kwargs):
-    e = tk.Entry(parent, width=largeur, bg=C_ACCENT, fg=C_TEXTE,
-                 insertbackground=C_TEXTE, font=F_NORMAL,
-                 relief="flat", bd=8, **kwargs)
+    e=tk.Entry(parent, width=largeur, bg=C_ACCENT, fg=C_TEXTE,insertbackground=C_TEXTE, font=F_NORMAL,relief="flat", bd=8, **kwargs)
     return e
 
 def creer_carte(parent, titre=None, **kwargs):
-    frame = tk.Frame(parent, bg=C_PANNEAU, bd=0, relief="flat", **kwargs)
+    frame=tk.Frame(parent, bg=C_PANNEAU, bd=0, relief="flat", **kwargs)
     if titre:
-        tk.Label(frame, text=titre, bg=C_PANNEAU, fg=C_PILE,
-                 font=F_SOUS).pack(anchor="w", padx=15, pady=(12, 4))
-        sep = tk.Frame(frame, bg=C_BORDURE, height=1)
+        tk.Label(frame, text=titre,bg=C_PANNEAU,fg=C_PILE,font=F_SOUS).pack(anchor="w",padx=15,pady=(12,4))
+        sep=tk.Frame(frame, bg=C_BORDURE, height=1)
         sep.pack(fill="x", padx=15, pady=(0, 8))
     return frame
 
@@ -143,10 +96,10 @@ def creer_separateur(parent, couleur=C_BORDURE):
 # ─── PAGE: ACCUEIL ───────────────────────────────────────────────────────────
 def page_accueil():
     effacer_frame()
-    f = etat["frame_principale"]
+    f=etat["frame_principale"]
 
     # Hero section
-    hero = tk.Frame(f, bg=C_FOND)
+    hero=tk.Frame(f, bg=C_FOND)
     hero.pack(fill="x", pady=(40, 20))
 
     tk.Label(hero, text="◈", bg=C_FOND, fg=C_BOUTON,
@@ -157,13 +110,13 @@ def page_accueil():
              bg=C_FOND, fg=C_TEXTE_ALT, font=("Helvetica", 13)).pack(pady=(4, 0))
 
     # Règle du jeu rapide
-    regles = tk.Frame(f, bg=C_PANNEAU, padx=30, pady=16)
+    regles=tk.Frame(f, bg=C_PANNEAU, padx=30, pady=16)
     regles.pack(pady=20, ipadx=10)
     tk.Label(regles, text="Le dernier joueur à prendre un objet perd.",
              bg=C_PANNEAU, fg=C_PILE, font=("Helvetica", 12, "italic")).pack()
 
     # Boutons principaux
-    btns = tk.Frame(f, bg=C_FOND)
+    btns=tk.Frame(f, bg=C_FOND)
     btns.pack(pady=10)
 
     creer_btn(btns, "▶  Nouvelle Partie", page_config_partie,
@@ -176,15 +129,15 @@ def page_accueil():
               couleur=C_ACCENT, taille=13, padx=40, pady=12).grid(row=1, column=1, padx=10, pady=6)
 
     # Niveaux IA preview
-    niveaux_frame = creer_carte(f, titre="Niveaux de l'IA disponibles")
+    niveaux_frame=creer_carte(f, titre="Niveaux de l'IA disponibles")
     niveaux_frame.pack(pady=20, padx=60, fill="x")
 
-    niveaux = [("1", "Débutant", C_SUCCES), ("2", "Intermédiaire", C_PILE),
+    niveaux=[("1", "Débutant", C_SUCCES), ("2", "Intermédiaire", C_PILE),
                ("3", "Avancé (Minimax)", C_BOUTON), ("4", "Expert (NimSum)", C_OR)]
-    grid = tk.Frame(niveaux_frame, bg=C_PANNEAU)
+    grid=tk.Frame(niveaux_frame, bg=C_PANNEAU)
     grid.pack(padx=15, pady=10)
     for i, (num, nom, col) in enumerate(niveaux):
-        card = tk.Frame(grid, bg=C_ACCENT, padx=16, pady=10)
+        card=tk.Frame(grid, bg=C_ACCENT, padx=16, pady=10)
         card.grid(row=0, column=i, padx=6)
         tk.Label(card, text=f"Niveau {num}", bg=C_ACCENT, fg=col,
                  font=("Helvetica", 10, "bold")).pack()
@@ -194,19 +147,19 @@ def page_accueil():
 # ─── PAGE: CONFIG PARTIE ─────────────────────────────────────────────────────
 def page_config_partie():
     effacer_frame()
-    f = etat["frame_principale"]
+    f=etat["frame_principale"]
 
     tk.Label(f, text="⚙  Configuration de la Partie", bg=C_FOND, fg=C_TEXTE,
              font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
 
     # Mode de jeu
-    mode_frame = creer_carte(f, titre="Mode de jeu")
+    mode_frame=creer_carte(f, titre="Mode de jeu")
     mode_frame.pack(padx=60, fill="x", pady=8)
 
-    mode_var = tk.StringVar(value="JcIA")
-    etat["mode_var"] = mode_var
+    mode_var=tk.StringVar(value="JcIA")
+    etat["mode_var"]=mode_var
 
-    modes_inner = tk.Frame(mode_frame, bg=C_PANNEAU)
+    modes_inner=tk.Frame(mode_frame, bg=C_PANNEAU)
     modes_inner.pack(padx=15, pady=10, anchor="w")
 
     def style_radio(rb, actif):
@@ -214,13 +167,13 @@ def page_config_partie():
                   fg=C_BOUTON if actif else C_TEXTE_ALT,
                   selectcolor=C_PANNEAU if not actif else C_ACCENT)
 
-    rb1 = tk.Radiobutton(modes_inner, text="🤖  Joueur vs IA",
+    rb1=tk.Radiobutton(modes_inner, text="🤖  Joueur vs IA",
                           variable=mode_var, value="JcIA",
                           bg=C_PANNEAU, fg=C_TEXTE, selectcolor=C_PANNEAU,
                           font=F_NORMAL, activebackground=C_PANNEAU,
                           command=lambda: toggle_mode_widgets())
     rb1.pack(side="left", padx=(0, 20))
-    rb2 = tk.Radiobutton(modes_inner, text="👥  Joueur vs Joueur",
+    rb2=tk.Radiobutton(modes_inner, text="👥  Joueur vs Joueur",
                           variable=mode_var, value="JcJ",
                           bg=C_PANNEAU, fg=C_TEXTE, selectcolor=C_PANNEAU,
                           font=F_NORMAL, activebackground=C_PANNEAU,
@@ -228,114 +181,114 @@ def page_config_partie():
     rb2.pack(side="left")
 
     # Niveau IA
-    ia_frame = creer_carte(f, titre="Niveau de l'IA")
+    ia_frame=creer_carte(f, titre="Niveau de l'IA")
     ia_frame.pack(padx=60, fill="x", pady=8)
-    etat["ia_frame_ref"] = ia_frame
+    etat["ia_frame_ref"]=ia_frame
 
-    niveau_var = tk.IntVar(value=4)
-    etat["niveau_var"] = niveau_var
+    niveau_var=tk.IntVar(value=4)
+    etat["niveau_var"]=niveau_var
 
-    ia_inner = tk.Frame(ia_frame, bg=C_PANNEAU)
+    ia_inner=tk.Frame(ia_frame, bg=C_PANNEAU)
     ia_inner.pack(padx=15, pady=10, anchor="w")
 
-    niveaux_defs = [(1,"Débutant",C_SUCCES),(2,"Intermédiaire",C_PILE),
+    niveaux_defs=[(1,"Débutant",C_SUCCES),(2,"Intermédiaire",C_PILE),
                     (3,"Avancé",C_BOUTON),(4,"Expert",C_OR)]
     for val, nom, col in niveaux_defs:
-        rb = tk.Radiobutton(ia_inner, text=f"  {val}. {nom}",
+        rb=tk.Radiobutton(ia_inner, text=f"  {val}. {nom}",
                              variable=niveau_var, value=val,
                              bg=C_PANNEAU, fg=col, selectcolor=C_PANNEAU,
                              font=("Helvetica", 11), activebackground=C_PANNEAU)
         rb.pack(side="left", padx=8)
 
     # Joueurs
-    joueurs_frame = creer_carte(f, titre="Joueurs")
+    joueurs_frame=creer_carte(f, titre="Joueurs")
     joueurs_frame.pack(padx=60, fill="x", pady=8)
 
-    inner = tk.Frame(joueurs_frame, bg=C_PANNEAU)
+    inner=tk.Frame(joueurs_frame, bg=C_PANNEAU)
     inner.pack(padx=15, pady=10, fill="x")
 
     tk.Label(inner, text="Joueur 1 :", bg=C_PANNEAU, fg=C_TEXTE_ALT,
              font=F_NORMAL).grid(row=0, column=0, sticky="w", padx=(0, 10), pady=6)
-    entry_j1 = creer_entry(inner, largeur=22)
+    entry_j1=creer_entry(inner, largeur=22)
     entry_j1.grid(row=0, column=1, sticky="w")
     entry_j1.insert(0, etat["joueur1"]["nom"] if etat["joueur1"] else "")
-    etat["entry_j1"] = entry_j1
+    etat["entry_j1"]=entry_j1
 
     tk.Label(inner, text="Joueur 2 :", bg=C_PANNEAU, fg=C_TEXTE_ALT,
              font=F_NORMAL).grid(row=1, column=0, sticky="w", padx=(0, 10), pady=6)
-    entry_j2 = creer_entry(inner, largeur=22)
+    entry_j2=creer_entry(inner, largeur=22)
     entry_j2.grid(row=1, column=1, sticky="w")
     entry_j2.insert(0, etat["joueur2"]["nom"] if etat["joueur2"] else "")
-    etat["entry_j2"] = entry_j2
+    etat["entry_j2"]=entry_j2
 
-    etat["label_j2"] = tk.Label(inner, text="(optionnel en mode JcJ)",
+    etat["label_j2"]=tk.Label(inner, text="(optionnel en mode JcIA)",
                                   bg=C_PANNEAU, fg=C_TEXTE_ALT, font=F_SMALL)
     etat["label_j2"].grid(row=1, column=2, padx=8)
 
     # Piles initiales
-    piles_frame = creer_carte(f, titre="Configuration des piles (3 piles)")
+    piles_frame=creer_carte(f, titre="Configuration des piles (3 piles)")
     piles_frame.pack(padx=60, fill="x", pady=8)
 
-    piles_inner = tk.Frame(piles_frame, bg=C_PANNEAU)
+    piles_inner=tk.Frame(piles_frame, bg=C_PANNEAU)
     piles_inner.pack(padx=15, pady=10, anchor="w")
 
-    entries_piles = []
+    entries_piles=[]
     for i, val in enumerate([3, 5, 7]):
         tk.Label(piles_inner, text=f"Pile {i+1} :", bg=C_PANNEAU,
                  fg=C_PILE, font=F_NORMAL).grid(row=0, column=i*2, padx=(0,6))
-        e = creer_entry(piles_inner, largeur=5)
+        e=creer_entry(piles_inner, largeur=5)
         e.insert(0, str(val))
         e.grid(row=0, column=i*2+1, padx=(0, 20))
         entries_piles.append(e)
-    etat["entries_piles"] = entries_piles
+    etat["entries_piles"]=entries_piles
 
     def toggle_mode_widgets():
-        mode = mode_var.get()
+        mode=mode_var.get()
         for w in ia_inner.winfo_children():
             w.config(state="normal" if mode == "JcIA" else "disabled")
 
     # Boutons
-    btn_frame = tk.Frame(f, bg=C_FOND)
+    btn_frame=tk.Frame(f, bg=C_FOND)
     btn_frame.pack(pady=20)
 
     def lancer():
         try:
-            piles = [int(e.get()) for e in etat["entries_piles"]]
+            piles=[int(e.get()) for e in etat["entries_piles"]]
             if any(p <= 0 for p in piles):
                 raise ValueError("Les piles doivent être > 0")
         except ValueError as ex:
             messagebox.showerror("Erreur", f"Piles invalides : {ex}")
             return
 
-        nom_j1 = etat["entry_j1"].get().strip() or "Joueur 1"
-        existe_j1, joueur1 = player_service.selectionner_joueur(nom_j1)
+        nom_j1=etat["entry_j1"].get().strip() or "Joueur 1"
+        existe_j1, joueur1=player_service.selectionner_joueur(nom_j1)
         if not existe_j1:
-            ok, joueur1 = player_service.creer_profil(nom_j1)
+            ok, joueur1=player_service.creer_profil(nom_j1)
             if not ok:
                 messagebox.showerror("Erreur", joueur1)
                 return
-        etat["joueur1"] = {"id": joueur1[0], "nom": joueur1[1]}
+        etat["joueur1"]={"id": joueur1[0], "nom": joueur1[1]}
 
         if mode_var.get() == "JcIA":
-            etat["joueur2"] = {"id": None, "nom": "IA"}
+            etat["joueur2"]={"id": None, "nom": "IA"}
         else:
-            nom_j2 = etat["entry_j2"].get().strip() or "Joueur 2"
-            existe_j2, joueur2 = player_service.selectionner_joueur(nom_j2)
+            nom_j2=etat["entry_j2"].get().strip() or "Joueur 2"
+            existe_j2, joueur2=player_service.selectionner_joueur(nom_j2)
             if not existe_j2:
-                ok, joueur2 = player_service.creer_profil(nom_j2)
+                ok, joueur2=player_service.creer_profil(nom_j2)
                 if not ok:
                     messagebox.showerror("Erreur", joueur2)
                     return
-            etat["joueur2"] = {"id": joueur2[0], "nom": joueur2[1]}
+            etat["joueur2"]={"id": joueur2[0], "nom": joueur2[1]}
 
-        etat["mode_jeu"] = mode_var.get()
-        etat["niveau_ia"] = niveau_var.get()
-        etat["piles"] = piles[:]
-        etat["piles_initiales"] = piles[:]
-        etat["tour"] = 1
-        etat["nb_coups"] = 0
-        etat["debut_partie"] = time.time()
-        etat["pile_selectionnee"] = None
+        etat["mode_jeu"]=mode_var.get()
+        etat["niveau_ia"]=niveau_var.get()
+        etat["piles"]=piles[:]
+        etat["piles_initiales"]=piles[:]
+        etat["tour"]=1
+        etat["nb_coups"]=0
+        etat["debut_partie"]=time.time()
+        etat["pile_selectionnee"]=None
         page_jeu()
 
     creer_btn(btn_frame, "▶  Lancer la Partie", lancer,
@@ -344,34 +297,34 @@ def page_config_partie():
               couleur=C_ACCENT, padx=20, pady=12).pack(side="left", padx=10)
 
 # ─── PAGE: JEU ───────────────────────────────────────────────────────────────
-piles_canvas = []
-pile_labels = []
+piles_canvas=[]
+pile_labels=[]
 
 def page_jeu():
     effacer_frame()
-    f = etat["frame_principale"]
+    f=etat["frame_principale"]
 
-    etat["partie_en_cours"] = True
+    etat["partie_en_cours"]=True
 
     # Header
-    header = tk.Frame(f, bg=C_PANNEAU, pady=10)
+    header=tk.Frame(f, bg=C_PANNEAU, pady=10)
     header.pack(fill="x")
 
-    j1_nom = etat["joueur1"]["nom"]
-    j2_nom = etat["joueur2"]["nom"]
+    j1_nom=etat["joueur1"]["nom"]
+    j2_nom=etat["joueur2"]["nom"]
 
-    etat["lbl_j1"] = tk.Label(header, text=f"◉ {j1_nom}", bg=C_PANNEAU,
+    etat["lbl_j1"]=tk.Label(header, text=f"◉ {j1_nom}", bg=C_PANNEAU,
                                fg=C_BOUTON, font=("Helvetica", 14, "bold"))
     etat["lbl_j1"].grid(row=0, column=0, padx=30)
 
     tk.Label(header, text="vs", bg=C_PANNEAU, fg=C_TEXTE_ALT,
              font=("Helvetica", 12)).grid(row=0, column=1, padx=20)
 
-    etat["lbl_j2"] = tk.Label(header, text=f"◉ {j2_nom}", bg=C_PANNEAU,
+    etat["lbl_j2"]=tk.Label(header, text=f"◉ {j2_nom}", bg=C_PANNEAU,
                                fg=C_TEXTE_ALT, font=("Helvetica", 14, "bold"))
     etat["lbl_j2"].grid(row=0, column=2, padx=30)
 
-    etat["lbl_tour"] = tk.Label(header, text="", bg=C_PANNEAU, fg=C_OR,
+    etat["lbl_tour"]=tk.Label(header, text="", bg=C_PANNEAU, fg=C_OR,
                                  font=("Helvetica", 11, "italic"))
     etat["lbl_tour"].grid(row=1, column=0, columnspan=3, pady=(4, 0))
 
@@ -381,27 +334,32 @@ def page_jeu():
     creer_separateur(f).pack(fill="x")
 
     # Zone de jeu - piles visuelles
-    jeu_zone = tk.Frame(f, bg=C_FOND, pady=20)
+    jeu_zone=tk.Frame(f, bg=C_FOND, pady=20)
     jeu_zone.pack(fill="both", expand=True)
 
-    etat["piles_zone"] = jeu_zone
-    etat["pile_frames"] = []
+    etat["piles_zone"]=jeu_zone
+    etat["pile_frames"]=[]
 
     dessiner_piles()
 
     # Contrôles
-    ctrl = tk.Frame(f, bg=C_PANNEAU, pady=12)
+    ctrl=tk.Frame(f, bg=C_PANNEAU, pady=12)
     ctrl.pack(fill="x")
 
     tk.Label(ctrl, text="Nb d'objets à retirer :", bg=C_PANNEAU,
              fg=C_TEXTE_ALT, font=F_NORMAL).pack(side="left", padx=(20, 8))
 
-    etat["spin_val"] = tk.IntVar(value=1)
-    spin = tk.Spinbox(ctrl, from_=1, to=99, width=5,
+    etat["spin_val"]=tk.IntVar(value=1)
+    spin=tk.Spinbox(ctrl, from_=1, to=99, width=5,
                       textvariable=etat["spin_val"],
                       bg=C_ACCENT, fg=C_TEXTE, buttonbackground=C_ACCENT,
                       font=F_NORMAL, relief="flat")
-    spin.pack(side="left", padx=(0, 16))
+    spin.pack(side="left", padx=(0, 8))
+    etat["spin"]=spin
+
+    etat["lbl_max_objets"]=tk.Label(ctrl, text="", bg=C_PANNEAU,
+                                       fg=C_PILE, font=F_SMALL)
+    etat["lbl_max_objets"].pack(side="left", padx=(0, 16))
 
     creer_btn(ctrl, "✓  Jouer", jouer_coup,
               padx=20, pady=6).pack(side="left", padx=8)
@@ -409,27 +367,27 @@ def page_jeu():
               couleur=C_ACCENT, padx=16, pady=6).pack(side="left", padx=4)
 
     # Status bar
-    etat["status_bar"] = tk.Label(f, text="", bg=C_ACCENT, fg=C_TEXTE,
+    etat["status_bar"]=tk.Label(f, text="", bg=C_ACCENT, fg=C_TEXTE,
                                    font=F_NORMAL, pady=6)
     etat["status_bar"].pack(fill="x")
 
     actualiser_tour()
 
 def dessiner_piles():
-    zone = etat["piles_zone"]
+    zone=etat["piles_zone"]
     for w in zone.winfo_children():
         w.destroy()
-    etat["pile_frames"] = []
+    etat["pile_frames"]=[]
 
-    container = tk.Frame(zone, bg=C_FOND)
+    container=tk.Frame(zone, bg=C_FOND)
     container.pack(expand=True)
 
     for i, nb in enumerate(etat["piles"]):
-        selected = (etat["pile_selectionnee"] == i)
-        pile_bg = C_PILE_SEL if selected else C_ACCENT
-        border_col = C_PILE_SEL if selected else C_BORDURE
+        selected=(etat["pile_selectionnee"] == i)
+        pile_bg=C_PILE_SEL if selected else C_ACCENT
+        border_col=C_PILE_SEL if selected else C_BORDURE
 
-        pile_card = tk.Frame(container, bg=pile_bg, padx=20, pady=16,
+        pile_card=tk.Frame(container, bg=pile_bg, padx=20, pady=16,
                               highlightbackground=border_col,
                               highlightthickness=2)
         pile_card.grid(row=0, column=i, padx=18, pady=10)
@@ -439,17 +397,17 @@ def dessiner_piles():
                  font=("Helvetica", 10, "bold")).pack()
 
         # Objets visuels (cercles en unicode)
-        objets_frame = tk.Frame(pile_card, bg=pile_bg)
+        objets_frame=tk.Frame(pile_card, bg=pile_bg)
         objets_frame.pack(pady=8)
 
-        couleur_obj = C_PILE_SEL if selected else C_PILE
+        couleur_obj=C_PILE_SEL if selected else C_PILE
         if nb == 0:
             tk.Label(objets_frame, text="∅", bg=pile_bg,
                      fg=C_TEXTE_ALT, font=("Helvetica", 24)).pack()
         else:
-            cols = 4
+            cols=4
             for j in range(nb):
-                r, c = divmod(j, cols)
+                r, c=divmod(j, cols)
                 tk.Label(objets_frame, text="⬤", bg=pile_bg,
                          fg=couleur_obj, font=("Helvetica", 16)).grid(
                     row=r, column=c, padx=2, pady=1)
@@ -461,7 +419,16 @@ def dessiner_piles():
         def make_click(idx):
             def click(e):
                 if etat["tour"] == 1 or etat["mode_jeu"] == "JcJ":
-                    etat["pile_selectionnee"] = idx
+                    etat["pile_selectionnee"]=idx
+                    # Mettre à jour le maximum du Spinbox
+                    max_objets=etat["piles"][idx]
+                    if "spin" in etat and max_objets > 0:
+                        etat["spin"].config(to=max_objets)
+                        etat["spin_val"].set(1)
+                        etat["lbl_max_objets"].config(
+                            text=f"(max: {max_objets})",
+                            fg=C_SUCCES if max_objets > 0 else C_ERREUR
+                        )
                     dessiner_piles()
             return click
 
@@ -469,11 +436,25 @@ def dessiner_piles():
         for child in pile_card.winfo_children():
             child.bind("<Button-1>", make_click(i))
         etat["pile_frames"].append(pile_card)
+    
+    # Mettre à jour le label du maximum si une pile est sélectionnée
+    if etat["pile_selectionnee"] is not None and "lbl_max_objets" in etat:
+        max_objets=etat["piles"][etat["pile_selectionnee"]]
+        if max_objets > 0:
+            etat["lbl_max_objets"].config(
+                text=f"(max: {max_objets})",
+                fg=C_SUCCES
+            )
+        else:
+            etat["lbl_max_objets"].config(
+                text="(pile vide)",
+                fg=C_ERREUR
+            )
 
 def actualiser_tour():
-    tour = etat["tour"]
-    j1 = etat["joueur1"]["nom"]
-    j2 = etat["joueur2"]["nom"]
+    tour=etat["tour"]
+    j1=etat["joueur1"]["nom"]
+    j2=etat["joueur2"]["nom"]
 
     if tour == 1:
         etat["lbl_j1"].config(fg=C_BOUTON)
@@ -493,45 +474,58 @@ def jouer_coup():
         return
 
     if etat["pile_selectionnee"] is None:
-        messagebox.showwarning("Sélection requise", "Cliquez sur une pile pour la sélectionner d'abord.")
+        messagebox.showwarning("⚠  Sélection requise", 
+                              "Cliquez sur une pile pour la sélectionner d'abord.")
         return
 
-    idx = etat["pile_selectionnee"]
+    idx=etat["pile_selectionnee"]
+    max_objets=etat["piles"][idx]
+
+    # Vérifier que la pile n'est pas vide
+    if max_objets == 0:
+        messagebox.showerror("❌  Erreur", f"La pile {idx+1} est vide. Sélectionnez une autre pile.")
+        return
+
+    # Récupérer et valider le nombre d'objets
     try:
-        nb = int(etat["spin_val"].get())
-    except:
-        nb = 1
+        nb=int(etat["spin_val"].get())
+    except ValueError:
+        messagebox.showerror("❌  Erreur", "Veuillez entrer un nombre valide.")
+        return
 
+    # Validation du nombre d'objets
     if nb < 1:
-        messagebox.showerror("Erreur", "Vous devez retirer au moins 1 objet.")
+        messagebox.showerror("❌  Erreur", "Vous devez retirer au moins 1 objet.")
         return
-    if nb > etat["piles"][idx]:
-        messagebox.showerror("Erreur", f"La pile {idx+1} n'a que {etat['piles'][idx]} objets.")
-        return
-    if etat["piles"][idx] == 0:
-        messagebox.showerror("Erreur", "Cette pile est vide.")
+    
+    if nb > max_objets:
+        messagebox.showerror("❌  Erreur", 
+                            f"La pile {idx+1} ne contient que {max_objets} objet{'s' if max_objets > 1 else ''}.\n"
+                            f"Vous ne pouvez retirer que {max_objets} objet(s) maximum.")
         return
 
     etat["piles"][idx] -= nb
     etat["nb_coups"] += 1
-    etat["pile_selectionnee"] = None
+    etat["pile_selectionnee"]=None
+    etat["spin_val"].set(1)
+    etat["lbl_max_objets"].config(text="")
     dessiner_piles()
 
     if partie_terminee():
         finir_partie(perdant=etat["tour"])
         return
 
-    etat["tour"] = 2 if etat["tour"] == 1 else 1
+    etat["tour"]=2 if etat["tour"] == 1 else 1
     actualiser_tour()
 
 def jouer_ia_auto():
     if not etat["partie_en_cours"]:
         return
-    idx, nb = jouer_ia(etat["piles"], etat["niveau_ia"])
-    nom_ia = etat["joueur2"]["nom"]
+    idx, nb=jouer_ia(etat["piles"], etat["niveau_ia"])
+    nom_ia=etat["joueur2"]["nom"]
     etat["piles"][idx] -= nb
     etat["nb_coups"] += 1
-    etat["pile_selectionnee"] = idx
+    etat["pile_selectionnee"]=idx
     dessiner_piles()
     etat["status_bar"].config(
         text=f"L'IA retire {nb} objet(s) de la pile {idx+1}."
@@ -542,22 +536,22 @@ def jouer_ia_auto():
         return
 
     def apres_ia():
-        etat["pile_selectionnee"] = None
-        etat["tour"] = 1
+        etat["pile_selectionnee"]=None
+        etat["tour"]=1
         dessiner_piles()
         actualiser_tour()
 
     etat["root"].after(500, apres_ia)
 
 def finir_partie(perdant):
-    etat["partie_en_cours"] = False
-    duree = int(time.time() - etat["debut_partie"]) if etat["debut_partie"] else 0
-    gagnant = perdant
-    nom_gagnant = etat["joueur1"]["nom"] if gagnant == 1 else etat["joueur2"]["nom"]
-    nom_perdant = etat["joueur1"]["nom"] if perdant == 2 else etat["joueur2"]["nom"]
+    etat["partie_en_cours"]=False
+    duree=int(time.time() - etat["debut_partie"]) if etat["debut_partie"] else 0
+    gagnant=perdant
+    nom_gagnant=etat["joueur1"]["nom"] if gagnant == 1 else etat["joueur2"]["nom"]
+    nom_perdant=etat["joueur1"]["nom"] if perdant == 2 else etat["joueur2"]["nom"]
 
-    joueur1_id = etat["joueur1"].get("id")
-    joueur2_id = etat["joueur2"].get("id")
+    joueur1_id=etat["joueur1"].get("id")
+    joueur2_id=etat["joueur2"].get("id")
 
     if joueur1_id is not None and joueur2_id is not None:
         try:
@@ -597,25 +591,25 @@ def finir_partie(perdant):
 
 def confirmer_abandon():
     if messagebox.askyesno("Abandonner", "Voulez-vous vraiment abandonner la partie ?"):
-        etat["partie_en_cours"] = False
+        etat["partie_en_cours"]=False
         page_accueil()
 
 # ─── PAGE: RÉSULTAT ──────────────────────────────────────────────────────────
 def page_resultat(gagnant, perdant, duree):
     effacer_frame()
-    f = etat["frame_principale"]
+    f=etat["frame_principale"]
 
     tk.Frame(f, bg=C_FOND, height=30).pack()
 
     # Trophée animé (simple pulsation via couleur)
-    trophy_lbl = tk.Label(f, text="🏆", bg=C_FOND, font=("Helvetica", 72))
+    trophy_lbl=tk.Label(f, text="🏆", bg=C_FOND, font=("Helvetica", 72))
     trophy_lbl.pack()
 
     tk.Label(f, text="Partie Terminée !", bg=C_FOND, fg=C_OR,
              font=("Helvetica", 26, "bold")).pack(pady=(10, 0))
 
     # Résultat
-    res_frame = creer_carte(f)
+    res_frame=creer_carte(f)
     res_frame.pack(pady=20, padx=100, fill="x")
 
     tk.Label(res_frame, text="Gagnant", bg=C_PANNEAU, fg=C_TEXTE_ALT,
@@ -626,10 +620,10 @@ def page_resultat(gagnant, perdant, duree):
     creer_separateur(res_frame, C_BORDURE).pack(fill="x", padx=20, pady=10)
 
     # Stats de la partie
-    stats_inner = tk.Frame(res_frame, bg=C_PANNEAU)
+    stats_inner=tk.Frame(res_frame, bg=C_PANNEAU)
     stats_inner.pack(pady=(0, 16))
 
-    infos = [
+    infos=[
         ("Nombre de coups", str(etat["nb_coups"])),
         ("Durée", f"{duree}s"),
         ("Piles initiales", ",".join(str(p) for p in etat["piles_initiales"])),
@@ -642,7 +636,7 @@ def page_resultat(gagnant, perdant, duree):
                  font=("Helvetica", 11, "bold")).grid(row=i, column=1, sticky="w")
 
     # Boutons
-    btn_frame = tk.Frame(f, bg=C_FOND)
+    btn_frame=tk.Frame(f, bg=C_FOND)
     btn_frame.pack(pady=20)
 
     creer_btn(btn_frame, "▶  Rejouer", page_config_partie,
@@ -653,32 +647,31 @@ def page_resultat(gagnant, perdant, duree):
 # ─── PAGE: PROFILS ───────────────────────────────────────────────────────────
 def page_profils():
     effacer_frame()
-    f = etat["frame_principale"]
+    f=etat["frame_principale"]
 
-    tk.Label(f, text="👤  Gestion des Profils", bg=C_FOND, fg=C_TEXTE,
-             font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
+    tk.Label(f, text="👤  Gestion des Profils", bg=C_FOND, fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
 
     # Créer un profil
-    creer_frame = creer_carte(f, titre="Créer un profil")
+    creer_frame=creer_carte(f, titre="Créer un profil")
     creer_frame.pack(padx=60, fill="x", pady=8)
 
-    inner = tk.Frame(creer_frame, bg=C_PANNEAU)
+    inner=tk.Frame(creer_frame, bg=C_PANNEAU)
     inner.pack(padx=15, pady=10, anchor="w")
 
     tk.Label(inner, text="Nom :", bg=C_PANNEAU, fg=C_TEXTE_ALT,
              font=F_NORMAL).pack(side="left", padx=(0, 10))
-    entry_nom = creer_entry(inner, largeur=22)
+    entry_nom=creer_entry(inner, largeur=22)
     entry_nom.pack(side="left", padx=(0, 12))
 
-    msg_creation = tk.Label(inner, text="", bg=C_PANNEAU, fg=C_SUCCES, font=F_NORMAL)
+    msg_creation=tk.Label(inner, text="", bg=C_PANNEAU, fg=C_SUCCES, font=F_NORMAL)
     msg_creation.pack(side="left")
 
     def creer():
-        nom = entry_nom.get().strip()
+        nom=entry_nom.get().strip()
         if not nom:
             msg_creation.config(text="Nom requis.", fg=C_ERREUR)
             return
-        ok, resultat = player_service.creer_profil(nom)
+        ok, resultat=player_service.creer_profil(nom)
         if ok:
             msg_creation.config(text=f"Profil '{nom}' créé !", fg=C_SUCCES)
             entry_nom.delete(0, "end")
@@ -689,39 +682,39 @@ def page_profils():
     creer_btn(inner, "+ Créer", creer, padx=14, pady=5).pack(side="left")
 
     # Liste des joueurs
-    liste_frame = creer_carte(f, titre="Joueurs enregistrés")
+    liste_frame=creer_carte(f, titre="Joueurs enregistrés")
     liste_frame.pack(padx=60, fill="x", pady=8)
 
-    liste_inner = tk.Frame(liste_frame, bg=C_PANNEAU)
+    liste_inner=tk.Frame(liste_frame, bg=C_PANNEAU)
     liste_inner.pack(padx=15, pady=10, fill="x")
-    etat["liste_profils_frame"] = liste_inner
+    etat["liste_profils_frame"]=liste_inner
 
     def rafraichir_liste():
         for w in liste_inner.winfo_children():
             w.destroy()
-        headers = ["Nom", "Score", "Victoires", "Défaites", "Actions"]
-        cols_w = [200, 80, 90, 80, 260]
+        headers=["Nom", "Score", "Victoires", "Défaites", "Actions"]
+        cols_w=[200, 80, 90, 80, 260]
         for j, (h, w) in enumerate(zip(headers, cols_w)):
             tk.Label(liste_inner, text=h, bg=C_PANNEAU, fg=C_PILE,
                      font=("Helvetica", 10, "bold"), width=w//10).grid(
                 row=0, column=j, padx=8, pady=(0, 6))
 
-        joueurs = db.get_tous_joueurs()
+        joueurs=db.get_tous_joueurs()
         for i, joueur in enumerate(joueurs):
-            bg = C_PANNEAU if i % 2 == 0 else C_ACCENT
-            joueur_id = joueur[0]
-            nom = joueur[1]
-            score = joueur[3]
-            victoires = joueur[4]
-            defaites = joueur[5]
-            vals = [nom, score, victoires, defaites]
+            bg=C_PANNEAU if i % 2 == 0 else C_ACCENT
+            joueur_id=joueur[0]
+            nom=joueur[1]
+            score=joueur[3]
+            victoires=joueur[4]
+            defaites=joueur[5]
+            vals=[nom, score, victoires, defaites]
             for j, v in enumerate(vals):
                 tk.Label(liste_inner, text=str(v), bg=bg, fg=C_TEXTE,
                          font=F_NORMAL).grid(row=i+1, column=j, padx=8, pady=4)
 
             def make_choisir(jou):
                 def choisir():
-                    etat["joueur1"] = {"id": jou[0], "nom": jou[1]}
+                    etat["joueur1"]={"id": jou[0], "nom": jou[1]}
                     messagebox.showinfo("Sélection", f"'{jou[1]}' sélectionné comme Joueur 1.")
                 return choisir
 
@@ -737,7 +730,7 @@ def page_profils():
                         rafraichir_liste()
                 return supprimer
 
-            btn_frame = tk.Frame(liste_inner, bg=bg)
+            btn_frame=tk.Frame(liste_inner, bg=bg)
             btn_frame.grid(row=i+1, column=4, padx=4, pady=2, sticky="w")
             creer_btn(btn_frame, "Choisir", make_choisir(joueur),
                       couleur=C_ACCENT, padx=6, pady=2, taille=8).pack(side="left", padx=2)
@@ -754,23 +747,22 @@ def page_profils():
 # ─── PAGE: STATS JOUEUR ──────────────────────────────────────────────────────
 def page_stats_joueur(joueur):
     effacer_frame()
-    f = etat["frame_principale"]
+    f=etat["frame_principale"]
 
-    joueur_id = joueur[0]
-    stats = player_service.afficher_stats(joueur)
+    joueur_id=joueur[0]
+    stats=player_service.afficher_stats(joueur)
 
-    tk.Label(f, text=f"📊  Stats de {stats['nom']}", bg=C_FOND, fg=C_TEXTE,
-             font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
+    tk.Label(f, text=f"📊  Stats de {stats['nom']}", bg=C_FOND, fg=C_TEXTE,font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
 
-    total = stats["total_parties"]
-    taux = stats["taux_victoire"]
+    total=stats["total_parties"]
+    taux=stats["taux_victoire"]
 
     # Badges stats
-    badges_frame = tk.Frame(f, bg=C_FOND)
+    badges_frame=tk.Frame(f, bg=C_FOND)
     badges_frame.pack(pady=10)
 
     def badge(parent, label, valeur, couleur):
-        c = tk.Frame(parent, bg=C_PANNEAU, padx=24, pady=14)
+        c=tk.Frame(parent, bg=C_PANNEAU, padx=24, pady=14)
         c.pack(side="left", padx=10)
         tk.Label(c, text=str(valeur), bg=C_PANNEAU, fg=couleur,
                  font=("Helvetica", 28, "bold")).pack()
@@ -783,44 +775,44 @@ def page_stats_joueur(joueur):
     badge(badges_frame, "Taux %", f"{taux}%", C_PILE)
 
     # Barre de victoires
-    bar_frame = creer_carte(f, titre="Taux de victoire")
+    bar_frame=creer_carte(f, titre="Taux de victoire")
     bar_frame.pack(padx=60, fill="x", pady=16)
 
-    bar_inner = tk.Frame(bar_frame, bg=C_PANNEAU)
+    bar_inner=tk.Frame(bar_frame, bg=C_PANNEAU)
     bar_inner.pack(padx=15, pady=12, fill="x")
 
-    bar_bg = tk.Frame(bar_inner, bg=C_ACCENT, height=18)
+    bar_bg=tk.Frame(bar_inner, bg=C_ACCENT, height=18)
     bar_bg.pack(fill="x")
     bar_bg.update_idletasks()
 
-    w_total = bar_bg.winfo_width() or 400
-    w_fill = int(w_total * taux / 100)
-    bar_fill = tk.Frame(bar_inner, bg=C_SUCCES, height=18, width=w_fill)
+    w_total=bar_bg.winfo_width() or 400
+    w_fill=int(w_total * taux / 100)
+    bar_fill=tk.Frame(bar_inner, bg=C_SUCCES, height=18, width=w_fill)
     bar_fill.place(in_=bar_bg, x=0, y=0)
 
     tk.Label(bar_inner, text=f"{taux}% de victoires sur {total} parties",
              bg=C_PANNEAU, fg=C_TEXTE_ALT, font=F_SMALL).pack(anchor="w", pady=(6, 0))
 
     # Historique
-    hist_frame = creer_carte(f, titre="Dernières parties")
+    hist_frame=creer_carte(f, titre="Dernières parties")
     hist_frame.pack(padx=60, fill="x", pady=8)
 
-    historiques = db.get_historique_joueur(joueur_id)
+    historiques=db.get_historique_joueur(joueur_id)
     for i, p in enumerate(historiques):
-        bg = C_PANNEAU if i % 2 == 0 else C_ACCENT
-        row = tk.Frame(hist_frame, bg=bg)
+        bg=C_PANNEAU if i % 2 == 0 else C_ACCENT
+        row=tk.Frame(hist_frame, bg=bg)
         row.pack(fill="x", padx=15, pady=1)
 
-        joueur1_id = p[1]
-        joueur2_id = p[2]
-        gagnant_id = p[6]
-        resultat = "Victoire" if gagnant_id == joueur_id else "Défaite"
-        col = C_SUCCES if resultat == "Victoire" else C_ERREUR
-        adversaire = p[12] if joueur1_id == joueur_id else p[11]
-        piles = p[5]
-        coups = p[10]
-        duree = p[9]
-        date = p[8].strftime("%Y-%m-%d") if hasattr(p[8], 'strftime') else str(p[8])
+        joueur1_id=p[1]
+        joueur2_id=p[2]
+        gagnant_id=p[6]
+        resultat="Victoire" if gagnant_id == joueur_id else "Défaite"
+        col=C_SUCCES if resultat == "Victoire" else C_ERREUR
+        adversaire=p[12] if joueur1_id == joueur_id else p[11]
+        piles=p[5]
+        coups=p[10]
+        duree=p[9]
+        date=p[8].strftime("%Y-%m-%d") if hasattr(p[8], 'strftime') else str(p[8])
 
         tk.Label(row, text=resultat, bg=bg, fg=col,
                  font=("Helvetica", 10, "bold"), width=10).pack(side="left", padx=8, pady=4)
@@ -839,23 +831,23 @@ def page_stats_joueur(joueur):
 # ─── PAGE: CLASSEMENT ────────────────────────────────────────────────────────
 def page_classement():
     effacer_frame()
-    f = etat["frame_principale"]
+    f=etat["frame_principale"]
 
     tk.Label(f, text="🏆  Classement Général", bg=C_FOND, fg=C_TEXTE,
              font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
 
-    classement = db.get_tous_joueurs()
+    classement=db.get_tous_joueurs()
 
-    medailles = ["🥇", "🥈", "🥉"]
-    couleurs_rang = [C_OR, C_ARGENT, C_BRONZE]
+    medailles=["🥇", "🥈", "🥉"]
+    couleurs_rang=[C_OR, C_ARGENT, C_BRONZE]
 
-    podium_frame = tk.Frame(f, bg=C_FOND)
+    podium_frame=tk.Frame(f, bg=C_FOND)
     podium_frame.pack(pady=10)
 
     for i, joueur in enumerate(classement[:3]):
-        col = couleurs_rang[i] if i < 3 else C_TEXTE
-        med = medailles[i] if i < 3 else f"#{i+1}"
-        card = tk.Frame(podium_frame, bg=C_PANNEAU, padx=24, pady=18)
+        col=couleurs_rang[i] if i < 3 else C_TEXTE
+        med=medailles[i] if i < 3 else f"#{i+1}"
+        card=tk.Frame(podium_frame, bg=C_PANNEAU, padx=24, pady=18)
         card.grid(row=0, column=i, padx=12)
         tk.Label(card, text=med, bg=C_PANNEAU, font=("Helvetica", 28)).pack()
         tk.Label(card, text=joueur[1], bg=C_PANNEAU, fg=col,
@@ -866,11 +858,11 @@ def page_classement():
     creer_separateur(f).pack(fill="x", padx=40, pady=20)
 
     # Tableau complet
-    table_frame = creer_carte(f, titre="Tableau complet")
+    table_frame=creer_carte(f, titre="Tableau complet")
     table_frame.pack(padx=60, fill="x", pady=8)
 
-    headers = ["#", "Nom", "Score", "Victoires", "Défaites", "Taux %"]
-    inner = tk.Frame(table_frame, bg=C_PANNEAU)
+    headers=["#", "Nom", "Score", "Victoires", "Défaites", "Taux %"]
+    inner=tk.Frame(table_frame, bg=C_PANNEAU)
     inner.pack(padx=15, pady=10, fill="x")
 
     for j, h in enumerate(headers):
@@ -879,11 +871,11 @@ def page_classement():
             row=0, column=j, pady=(0, 6))
 
     for i, joueur in enumerate(classement):
-        bg = C_PANNEAU if i % 2 == 0 else C_ACCENT
-        total = joueur[4] + joueur[5]
-        taux = f"{round(joueur[4]/total*100,1)}%" if total else "-"
+        bg=C_PANNEAU if i % 2 == 0 else C_ACCENT
+        total=joueur[4] + joueur[5]
+        taux=f"{round(joueur[4]/total*100,1)}%" if total else "-"
 
-        vals = [f"#{i+1}", joueur[1], joueur[3], joueur[4], joueur[5], taux]
+        vals=[f"#{i+1}", joueur[1], joueur[3], joueur[4], joueur[5], taux]
         for j, v in enumerate(vals):
             tk.Label(inner, text=str(v), bg=bg, fg=C_TEXTE,
                      font=F_NORMAL, width=10).grid(row=i+1, column=j, pady=4)
@@ -894,22 +886,22 @@ def page_classement():
 # ─── PAGE: STATISTIQUES GLOBALES ─────────────────────────────────────────────
 def page_stats():
     effacer_frame()
-    f = etat["frame_principale"]
+    f=etat["frame_principale"]
 
     tk.Label(f, text="📊  Statistiques Globales", bg=C_FOND, fg=C_TEXTE,
              font=("Helvetica", 20, "bold")).pack(pady=(30, 20))
 
-    total_parties, moy, par_niveau, classement = db.get_statistiques_globales()
-    total_parties = total_parties[0] if isinstance(total_parties, tuple) else total_parties
-    total_joueurs = len(db.get_tous_joueurs())
-    meilleur = classement[0] if classement else ("", 0, 0, 0, 0)
+    total_parties, moy, par_niveau, classement=db.get_statistiques_globales()
+    total_parties=total_parties[0] if isinstance(total_parties, tuple) else total_parties
+    total_joueurs=len(db.get_tous_joueurs())
+    meilleur=classement[0] if classement else ("", 0, 0, 0, 0)
 
     # Chiffres clés
-    chiffres = tk.Frame(f, bg=C_FOND)
+    chiffres=tk.Frame(f, bg=C_FOND)
     chiffres.pack(pady=10)
 
     def stat_box(parent, label, val, col):
-        c = tk.Frame(parent, bg=C_PANNEAU, padx=28, pady=16)
+        c=tk.Frame(parent, bg=C_PANNEAU, padx=28, pady=16)
         c.pack(side="left", padx=10)
         tk.Label(c, text=str(val), bg=C_PANNEAU, fg=col,
                  font=("Helvetica", 30, "bold")).pack()
@@ -921,32 +913,32 @@ def page_stats():
     stat_box(chiffres, "Meilleur score", meilleur[1], C_OR)
 
     # Répartition niveaux IA
-    niveaux_frame = creer_carte(f, titre="Parties par niveau IA")
+    niveaux_frame=creer_carte(f, titre="Parties par niveau IA")
     niveaux_frame.pack(padx=60, fill="x", pady=16)
 
-    niveaux_data = []
-    labels = {1: ("Débutant", C_SUCCES), 2: ("Intermédiaire", C_PILE),
+    niveaux_data=[]
+    labels={1: ("Débutant", C_SUCCES), 2: ("Intermédiaire", C_PILE),
               3: ("Avancé", C_BOUTON), 4: ("Expert", C_OR)}
     for niveau, nb in par_niveau:
-        nom, col = labels.get(niveau, (f"Niveau {niveau}", C_TEXTE))
+        nom, col=labels.get(niveau, (f"Niveau {niveau}", C_TEXTE))
         niveaux_data.append((nom, nb, col))
     if not niveaux_data:
-        niveaux_data = [("Débutant", 0, C_SUCCES), ("Intermédiaire", 0, C_PILE),
+        niveaux_data=[("Débutant", 0, C_SUCCES), ("Intermédiaire", 0, C_PILE),
                         ("Avancé", 0, C_BOUTON), ("Expert", 0, C_OR)]
-    max_val = max(n[1] for n in niveaux_data) or 1
+    max_val=max(n[1] for n in niveaux_data) or 1
 
-    chart_inner = tk.Frame(niveaux_frame, bg=C_PANNEAU)
+    chart_inner=tk.Frame(niveaux_frame, bg=C_PANNEAU)
     chart_inner.pack(padx=20, pady=12)
 
     for nom, val, col in niveaux_data:
-        row = tk.Frame(chart_inner, bg=C_PANNEAU)
+        row=tk.Frame(chart_inner, bg=C_PANNEAU)
         row.pack(fill="x", pady=3)
         tk.Label(row, text=nom, bg=C_PANNEAU, fg=C_TEXTE_ALT,
                  font=F_NORMAL, width=16, anchor="w").pack(side="left")
-        bar_bg = tk.Frame(row, bg=C_ACCENT, height=20, width=300)
+        bar_bg=tk.Frame(row, bg=C_ACCENT, height=20, width=300)
         bar_bg.pack(side="left")
-        bar_w = int(300 * val / max_val)
-        bar = tk.Frame(bar_bg, bg=col, height=20, width=bar_w)
+        bar_w=int(300 * val / max_val)
+        bar=tk.Frame(bar_bg, bg=col, height=20, width=bar_w)
         bar.place(x=0, y=0)
         tk.Label(row, text=str(val), bg=C_PANNEAU, fg=col,
                  font=("Helvetica", 10, "bold"), width=4).pack(side="left", padx=6)
@@ -956,28 +948,28 @@ def page_stats():
 
 # ─── NAVIGATION SIDEBAR ──────────────────────────────────────────────────────
 def creer_sidebar(root):
-    sidebar = tk.Frame(root, bg=C_PANNEAU, width=180)
+    sidebar=tk.Frame(root, bg=C_PANNEAU, width=180)
     sidebar.pack(side="left", fill="y")
     sidebar.pack_propagate(False)
 
     # Logo
-    tk.Label(sidebar, text="NIM", bg=C_PANNEAU, fg=C_BOUTON,
-             font=("Helvetica", 24, "bold")).pack(pady=(24, 4))
-    tk.Label(sidebar, text="Stratégie & IA", bg=C_PANNEAU, fg=C_TEXTE_ALT,
-             font=("Helvetica", 8)).pack(pady=(0, 20))
+    tk.Label(sidebar,text="NIM",bg=C_PANNEAU,fg=C_BOUTON,
+             font=("Helvetica",24,"bold")).pack(pady=(24, 4))
+    tk.Label(sidebar,text="Stratégie & IA", bg=C_PANNEAU, fg=C_TEXTE_ALT,
+             font=("Helvetica",8)).pack(pady=(0, 20))
 
     creer_separateur(sidebar).pack(fill="x", padx=16, pady=0)
 
-    nav_items = [
+    nav_items=[
         ("🏠  Accueil",       page_accueil),
-        ("▶  Jouer",          page_config_partie),
+        (" ▶  Jouer",         page_config_partie),
         ("👤  Profils",       page_profils),
         ("🏆  Classement",    page_classement),
         ("📊  Statistiques",  page_stats),
     ]
 
     for label, commande in nav_items:
-        btn = tk.Button(sidebar, text=label, command=commande,
+        btn=tk.Button(sidebar, text=label, command=commande,
                         bg=C_PANNEAU, fg=C_TEXTE, font=("Helvetica", 11),
                         relief="flat", anchor="w", padx=18, pady=9,
                         cursor="hand2", activebackground=C_ACCENT,
@@ -1001,32 +993,32 @@ def main():
     except Exception:
         messagebox.showerror("Erreur de base de données", "Impossible de se connecter à la base de données.")
 
-    root = tk.Tk()
+    root=tk.Tk()
     root.title("Jeu de Nim — IA & Statistiques")
     root.geometry("1000x680")
     root.configure(bg=C_FOND)
     root.resizable(True, True)
     root.minsize(800, 560)
 
-    etat["root"] = root
+    etat["root"]=root
 
     # Layout principal
     creer_sidebar(root)
 
     # Scrollable main area
-    main_container = tk.Frame(root, bg=C_FOND)
+    main_container=tk.Frame(root, bg=C_FOND)
     main_container.pack(side="right", fill="both", expand=True)
 
-    canvas_scroll = tk.Canvas(main_container, bg=C_FOND, highlightthickness=0)
-    scrollbar = ttk.Scrollbar(main_container, orient="vertical",
+    canvas_scroll=tk.Canvas(main_container, bg=C_FOND, highlightthickness=0)
+    scrollbar=ttk.Scrollbar(main_container, orient="vertical",
                                command=canvas_scroll.yview)
     canvas_scroll.configure(yscrollcommand=scrollbar.set)
 
     scrollbar.pack(side="right", fill="y")
     canvas_scroll.pack(side="left", fill="both", expand=True)
 
-    frame_interne = tk.Frame(canvas_scroll, bg=C_FOND)
-    canvas_window = canvas_scroll.create_window((0, 0), window=frame_interne,
+    frame_interne=tk.Frame(canvas_scroll, bg=C_FOND)
+    canvas_window=canvas_scroll.create_window((0, 0), window=frame_interne,
                                                  anchor="nw")
 
     def on_frame_configure(e):
@@ -1043,15 +1035,12 @@ def main():
 
     canvas_scroll.bind_all("<MouseWheel>", on_mousewheel)
 
-    etat["frame_principale"] = frame_interne
+    etat["frame_principale"]=frame_interne
 
     # Appliquer le style ttk
-    style = ttk.Style()
+    style=ttk.Style()
     style.theme_use("clam")
-    style.configure("Vertical.TScrollbar",
-                    background=C_ACCENT, troughcolor=C_PANNEAU,
-                    arrowcolor=C_TEXTE_ALT, bordercolor=C_PANNEAU)
-
+    style.configure("Vertical.TScrollbar",background=C_ACCENT,troughcolor=C_PANNEAU,arrowcolor=C_TEXTE_ALT,bordercolor=C_PANNEAU)
     page_accueil()
     root.mainloop()
 
