@@ -1,23 +1,6 @@
 import database as db
+from settings import *
 
-J_ID            =0
-J_NOM           =1
-J_DATE_CREATION =2
-J_SCORE_TOTAL   =3
-J_VICTOIRES     =4
-J_DEFAITES      =5
-
-P_ID            =0
-P_JOUEUR1_ID    =1
-P_JOUEUR2_ID    =2
-P_MODE_JEU      =3
-P_NIVEAU_IA     =4
-P_PILES         =5
-P_GAGNANT_ID    =6
-P_PERDANT_ID    =7
-P_DATE_PARTIE   =8
-P_DUREE_SECONDES=9
-P_NB_COUPS      =10
 
 def creer_profil(nom):
     if nom=='':
@@ -39,7 +22,6 @@ def selectionner_joueur(nom):
     return False,f"Aucun joueur trouvé avec le nom '{nom}'."
 
 def selectionner_joueur_par_id(joueur_id):
-
     joueur=db.get_joueur_par_id(joueur_id)
     if joueur!=[]:
         return True,joueur

@@ -1,5 +1,4 @@
 import pymysql
-from datetime import datetime
 
 con=pymysql.Connection(
     host='localhost',
@@ -53,7 +52,7 @@ def creer_joueur(nom):
             return False,"Ce pseudo est déjà utilisé."
         except Exception as e:
             return False,str(e)
-        
+
 def get_tous_joueurs():
     joueurs=[]
     with con.cursor() as cur:
@@ -84,7 +83,7 @@ def mettre_a_jour_stats(joueur_id,victoire=0,defaite=0,points=0):
                             defaites=defaites+%s
                             WHERE id=%s """,(points,int(victoire),int(defaite),joueur_id))
             con.commit()
-        except pymysql.Error as e:
+        except pymysql.Error:
             con.rollback()
 
 def supprimer_joueur(joueur_id):
@@ -93,7 +92,7 @@ def supprimer_joueur(joueur_id):
             cur.execute("DELETE FROM parties WHERE joueur1_id=%s OR joueur2_id=%s",(joueur_id,joueur_id))
             cur.execute("DELETE FROM joueurs WHERE id=%s",(joueur_id,))
             con.commit()
-        except pymysql.Error as e:
+        except pymysql.Error:
             con.rollback()
 
 def enregistrer_partie(joueur1_id,joueur2_id,mode_jeu,niveau_ia,piles_initiales,gagnant_id,perdant_id,duree_secondes,nb_coups):
@@ -105,9 +104,9 @@ def enregistrer_partie(joueur1_id,joueur2_id,mode_jeu,niveau_ia,piles_initiales,
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",(joueur1_id,joueur2_id,mode_jeu,niveau_ia,piles_str,
                                                                     gagnant_id, perdant_id, duree_secondes, nb_coups))
             con.commit()
-        except pymysql.Error as e:
+        except pymysql.Error:
             con.rollback()
-            
+
 def get_historique_joueur(joueur_id,limite=20):
     parties=[]
     with con.cursor() as cur:
@@ -119,7 +118,6 @@ def get_historique_joueur(joueur_id,limite=20):
                 ORDER BY parties.date_partie DESC
                 LIMIT %s """, (joueur_id,joueur_id,limite))
         parties=cur.fetchall()
-        
     return parties
 
 def get_statistiques_globales():
@@ -139,7 +137,7 @@ def get_statistiques_globales():
         classement=cur.fetchall()
 
         return(total,moy,par_niveau,classement)
-    
+
 def get_evolution_score(joueur_id):
     parties=[]
     with con.cursor() as cur:
@@ -153,8 +151,8 @@ def get_evolution_score(joueur_id):
     score=0
     for p in parties:
         if p[1]==1:
-            score+=10 
+            score+=10
         else:
-            score-=5 
+            score-=5
         scores.append(score)
     return scores
