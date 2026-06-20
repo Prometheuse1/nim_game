@@ -2,9 +2,19 @@ from settings import *
 import tkinter as tk
 from tkinter import ttk,messagebox
 import time
+import os
 import database as BD
 import player as player_service
 from enemy import jouer_ia
+
+ICONS_DIR=os.path.join(os.path.dirname(os.path.abspath(__file__)),"assets","icons")
+_icones_cache={}
+
+def get_icon(nom):
+    if nom not in _icones_cache:
+        chemin=os.path.join(ICONS_DIR,f"{nom}.png")
+        _icones_cache[nom]=tk.PhotoImage(file=chemin)
+    return _icones_cache[nom]
 
 etat={
     "page_courante":"accueil",
@@ -30,8 +40,13 @@ def effacer_frame():
     for w in etat["frame_principale"].winfo_children():
         w.destroy()
 
-def creer_btn(parent,texte,commande,couleur=C_BOUTON,fg=C_TEXTE,padx=20,pady=8,taille=11,**kwargs):
-    btn=tk.Button(parent,text=texte,command=commande,bg=couleur,fg=fg,font=("Helvetica",taille,"bold"),relief="flat",cursor="hand2",padx=padx,pady=pady,activebackground=C_BTN_HOVER,activeforeground=C_TEXTE,bd=0,**kwargs)
+def creer_btn(parent,texte,commande,couleur=C_BOUTON,fg=C_TEXTE,padx=20,pady=8,taille=11,icone=None,**kwargs):
+    if icone is not None:
+        img=get_icon(icone)
+        btn=tk.Button(parent,text=texte,image=img,compound="left",command=commande,bg=couleur,fg=fg,font=("Helvetica",taille,"bold"),relief="flat",cursor="hand2",padx=padx,pady=pady,activebackground=C_BTN_HOVER,activeforeground=C_TEXTE,bd=0,**kwargs)
+        btn.image=img
+    else:
+        btn=tk.Button(parent,text=texte,command=commande,bg=couleur,fg=fg,font=("Helvetica",taille,"bold"),relief="flat",cursor="hand2",padx=padx,pady=pady,activebackground=C_BTN_HOVER,activeforeground=C_TEXTE,bd=0,**kwargs)
     btn.config(bg=couleur)
     return btn
 
@@ -61,7 +76,7 @@ def page_accueil():
     hero=tk.Frame(f,bg=C_FOND)
     hero.pack(fill="x",pady=(40,20))
 
-    tk.Label(hero,text="◈",bg=C_FOND,fg=C_BOUTON,font=("Helvetica",48)).pack()
+    tk.Label(hero,image=get_icon("diamond"),bg=C_FOND).pack()
     tk.Label(hero,text="JEU DE NIM",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",36,"bold")).pack()
     tk.Label(hero,text="IA·Stratégie·Statistiques",bg=C_FOND,fg=C_TEXTE_ALT,font=("Helvetica",13)).pack(pady=(4,0))
 
@@ -72,10 +87,13 @@ def page_accueil():
     btns=tk.Frame(f,bg=C_FOND)
     btns.pack(pady=10)
 
-    creer_btn(btns,"▶  Nouvelle Partie",page_config_partie,taille=13,padx=40,pady=12).grid(row=0,column=0,padx=10,pady=6)
-    creer_btn(btns,"👤  Profils & Stats",page_profils,couleur=C_ACCENT,taille=13,padx=40,pady=12).grid(row=0,column=1,padx=10,pady=6)
-    creer_btn(btns,"🏆  Classement",page_classement,couleur=C_ACCENT,taille=13,padx=40,pady=12).grid(row=1,column=0,padx=10,pady=6)
-    creer_btn(btns,"📊  Statistiques",page_stats,couleur=C_ACCENT,taille=13,padx=40,pady=12).grid(row=1,column=1,padx=10,pady=6)
+    creer_btn(btns,"  Nouvelle Partie",page_config_partie,taille=13,padx=40,pady=12,icone="play").grid(row=0,column=0,padx=10,pady=6,sticky="ew")
+    creer_btn(btns,"  Profils & Stats",page_profils,couleur=C_ACCENT,taille=13,padx=40,pady=12,icone="user").grid(row=0,column=1,padx=10,pady=6,sticky="ew")
+    creer_btn(btns,"  Classement",page_classement,couleur=C_ACCENT,taille=13,padx=40,pady=12,icone="trophy").grid(row=1,column=0,padx=10,pady=6,sticky="ew")
+    creer_btn(btns,"  Statistiques",page_stats,couleur=C_ACCENT,taille=13,padx=40,pady=12,icone="bar_chart").grid(row=1,column=1,padx=10,pady=6,sticky="ew")
+
+    btns.grid_columnconfigure(0,weight=1,uniform="btncol")
+    btns.grid_columnconfigure(1,weight=1,uniform="btncol")
 
     niveaux_frame=creer_carte(f,titre="Niveaux de l'IA disponibles")
     niveaux_frame.pack(pady=20,padx=60,fill="x")
@@ -142,7 +160,7 @@ def page_config_partie():
     effacer_frame()
     f=etat["frame_principale"]
 
-    tk.Label(f,text="⚙  Configuration de la Partie",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
+    tk.Label(f,text="  Configuration de la Partie",image=get_icon("settings"),compound="left",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
 
     mode_frame=creer_carte(f,titre="Mode de jeu")
     mode_frame.pack(padx=60,fill="x",pady=8)
@@ -153,9 +171,9 @@ def page_config_partie():
     modes_inner=tk.Frame(mode_frame,bg=C_PANNEAU)
     modes_inner.pack(padx=15,pady=10,anchor="w")
 
-    rb1=tk.Radiobutton(modes_inner,text="🤖  Joueur vs IA",variable=mode_var,value="JcIA",bg=C_PANNEAU,fg=C_TEXTE,selectcolor=C_PANNEAU,font=F_NORMAL,activebackground=C_PANNEAU,command=toggle_mode_widgets)
+    rb1=tk.Radiobutton(modes_inner,text="  Joueur vs IA",image=get_icon("robot"),compound="left",variable=mode_var,value="JcIA",bg=C_PANNEAU,fg=C_TEXTE,selectcolor=C_PANNEAU,font=F_NORMAL,activebackground=C_PANNEAU,command=toggle_mode_widgets)
     rb1.pack(side="left",padx=(0,20))
-    rb2=tk.Radiobutton(modes_inner,text="👥  Joueur vs Joueur",variable=mode_var,value="JcJ",bg=C_PANNEAU,fg=C_TEXTE,selectcolor=C_PANNEAU,font=F_NORMAL,activebackground=C_PANNEAU,command=toggle_mode_widgets)
+    rb2=tk.Radiobutton(modes_inner,text="  Joueur vs Joueur",image=get_icon("group"),compound="left",variable=mode_var,value="JcJ",bg=C_PANNEAU,fg=C_TEXTE,selectcolor=C_PANNEAU,font=F_NORMAL,activebackground=C_PANNEAU,command=toggle_mode_widgets)
     rb2.pack(side="left")
 
     ia_frame=creer_carte(f,titre="Niveau de l'IA")
@@ -213,8 +231,8 @@ def page_config_partie():
     btn_frame=tk.Frame(f,bg=C_FOND)
     btn_frame.pack(pady=20)
 
-    creer_btn(btn_frame,"▶  Lancer la Partie",lancer,taille=13,padx=40,pady=12).pack(side="left",padx=10)
-    creer_btn(btn_frame,"← Retour",page_accueil,couleur=C_ACCENT,padx=20,pady=12).pack(side="left",padx=10)
+    creer_btn(btn_frame,"  Lancer la Partie",lancer,taille=13,padx=40,pady=12,icone="play").pack(side="left",padx=10)
+    creer_btn(btn_frame,"  Retour",page_accueil,couleur=C_ACCENT,padx=20,pady=12,icone="arrow_left").pack(side="left",padx=10)
 
 piles_canvas=[]
 pile_labels=[]
@@ -231,12 +249,12 @@ def page_jeu():
     j1_nom=etat["joueur1"]["nom"]
     j2_nom=etat["joueur2"]["nom"]
 
-    etat["lbl_j1"]=tk.Label(header,text=f"◉ {j1_nom}",bg=C_PANNEAU,fg=C_BOUTON,font=("Helvetica",14,"bold"))
+    etat["lbl_j1"]=tk.Label(header,text=f" {j1_nom}",image=get_icon("dot_active"),compound="left",bg=C_PANNEAU,fg=C_BOUTON,font=("Helvetica",14,"bold"))
     etat["lbl_j1"].grid(row=0,column=0,padx=30)
 
     tk.Label(header,text="vs",bg=C_PANNEAU,fg=C_TEXTE_ALT,font=("Helvetica",12)).grid(row=0,column=1,padx=20)
 
-    etat["lbl_j2"]=tk.Label(header,text=f"◉ {j2_nom}",bg=C_PANNEAU,fg=C_TEXTE_ALT,font=("Helvetica",14,"bold"))
+    etat["lbl_j2"]=tk.Label(header,text=f" {j2_nom}",image=get_icon("dot_inactive"),compound="left",bg=C_PANNEAU,fg=C_TEXTE_ALT,font=("Helvetica",14,"bold"))
     etat["lbl_j2"].grid(row=0,column=2,padx=30)
 
     etat["lbl_tour"]=tk.Label(header,text="",bg=C_PANNEAU,fg=C_OR,font=("Helvetica",11,"italic"))
@@ -268,8 +286,12 @@ def page_jeu():
     etat["lbl_max_objets"]=tk.Label(ctrl,text="",bg=C_PANNEAU,fg=C_PILE,font=F_SMALL)
     etat["lbl_max_objets"].pack(side="left",padx=(0,16))
 
-    creer_btn(ctrl,"✓  Jouer",jouer_coup,padx=20,pady=6).pack(side="left",padx=8)
-    creer_btn(ctrl,"↩  Abandonner",confirmer_abandon,couleur=C_ACCENT,padx=16,pady=6).pack(side="left",padx=4)
+    btns_jeu=tk.Frame(ctrl,bg=C_PANNEAU)
+    btns_jeu.pack(side="left",padx=4)
+    creer_btn(btns_jeu,"  Jouer",jouer_coup,padx=20,pady=6,icone="check").grid(row=0,column=0,padx=4,sticky="ew")
+    creer_btn(btns_jeu,"  Abandonner",confirmer_abandon,couleur=C_ACCENT,padx=16,pady=6,icone="undo").grid(row=0,column=1,padx=4,sticky="ew")
+    btns_jeu.grid_columnconfigure(0,weight=1,uniform="ctrlcol")
+    btns_jeu.grid_columnconfigure(1,weight=1,uniform="ctrlcol")
 
     etat["status_bar"]=tk.Label(f,text="",bg=C_ACCENT,fg=C_TEXTE,font=F_NORMAL,pady=6)
     etat["status_bar"].pack(fill="x")
@@ -313,9 +335,10 @@ def dessiner_piles():
             tk.Label(objets_frame,text="∅",bg=pile_bg,fg=C_TEXTE_ALT,font=("Helvetica",24)).pack()
         else:
             cols=4
+            dot_icon=get_icon("pile_dot_sel" if selected else "pile_dot")
             for j in range(nb):
                 r,c=divmod(j,cols)
-                tk.Label(objets_frame,text="⬤",bg=pile_bg,fg=couleur_obj,font=("Helvetica",16)).grid(row=r,column=c,padx=2,pady=1)
+                tk.Label(objets_frame,image=dot_icon,bg=pile_bg).grid(row=r,column=c,padx=2,pady=1)
 
         tk.Label(pile_card,text=f"({nb} objet{'s' if nb != 1 else ''})",bg=pile_bg,fg=C_TEXTE_ALT,font=("Helvetica",9)).pack()
 
@@ -337,14 +360,14 @@ def actualiser_tour():
     j2=etat["joueur2"]["nom"]
 
     if tour == 1:
-        etat["lbl_j1"].config(fg=C_BOUTON)
-        etat["lbl_j2"].config(fg=C_TEXTE_ALT)
-        etat["lbl_tour"].config(text=f"⟶ Tour de {j1}")
+        etat["lbl_j1"].config(fg=C_BOUTON,image=get_icon("dot_active"))
+        etat["lbl_j2"].config(fg=C_TEXTE_ALT,image=get_icon("dot_inactive"))
+        etat["lbl_tour"].config(text=f" Tour de {j1}",image=get_icon("arrow_right"),compound="left")
         etat["status_bar"].config(text=f"Sélectionnez une pile puis choisissez le nombre d'objets à retirer.")
     else:
-        etat["lbl_j1"].config(fg=C_TEXTE_ALT)
-        etat["lbl_j2"].config(fg=C_BOUTON)
-        etat["lbl_tour"].config(text=f"⟶ Tour de {j2}")
+        etat["lbl_j1"].config(fg=C_TEXTE_ALT,image=get_icon("dot_inactive"))
+        etat["lbl_j2"].config(fg=C_BOUTON,image=get_icon("dot_active"))
+        etat["lbl_tour"].config(text=f" Tour de {j2}",image=get_icon("arrow_right"),compound="left")
         if etat["mode_jeu"]=="JcIA":
             etat["status_bar"].config(text="L'IA réfléchit...")
             etat["root"].after(700,jouer_ia_auto)
@@ -464,7 +487,7 @@ def page_resultat(gagnant,perdant,duree):
 
     tk.Frame(f,bg=C_FOND,height=30).pack()
 
-    trophy_lbl=tk.Label(f,text="🏆",bg=C_FOND,font=("Helvetica",72))
+    trophy_lbl=tk.Label(f,image=get_icon("trophy_large"),bg=C_FOND)
     trophy_lbl.pack()
 
     tk.Label(f,text="Partie Terminée !",bg=C_FOND,fg=C_OR,font=("Helvetica",26,"bold")).pack(pady=(10,0))
@@ -489,8 +512,10 @@ def page_resultat(gagnant,perdant,duree):
     btn_frame=tk.Frame(f,bg=C_FOND)
     btn_frame.pack(pady=20)
 
-    creer_btn(btn_frame,"▶  Rejouer",page_config_partie,taille=13,padx=30,pady=10).pack(side="left",padx=10)
-    creer_btn(btn_frame,"🏠  Accueil",page_accueil,couleur=C_ACCENT,taille=13,padx=30,pady=10).pack(side="left",padx=10)
+    creer_btn(btn_frame,"  Rejouer",page_config_partie,taille=13,padx=30,pady=10,icone="play").grid(row=0,column=0,padx=10,sticky="ew")
+    creer_btn(btn_frame,"  Accueil",page_accueil,couleur=C_ACCENT,taille=13,padx=30,pady=10,icone="home").grid(row=0,column=1,padx=10,sticky="ew")
+    btn_frame.grid_columnconfigure(0,weight=1,uniform="resbtn")
+    btn_frame.grid_columnconfigure(1,weight=1,uniform="resbtn")
 
 def creer_profil_form():
     nom=etat["entry_nom_profil"].get().strip()
@@ -541,13 +566,13 @@ def rafraichir_liste():
         btn_frame.grid(row=i+1,column=4,padx=4,pady=2,sticky="w")
         creer_btn(btn_frame,"Choisir",lambda jou=joueur: choisir_joueur(jou),couleur=C_ACCENT,padx=6,pady=2,taille=8).pack(side="left",padx=2)
         creer_btn(btn_frame,"Stats",lambda jou=joueur: voir_stats_joueur(jou),couleur=C_BORDURE,padx=6,pady=2,taille=8).pack(side="left",padx=2)
-        creer_btn(btn_frame,"❌",lambda jou=joueur: supprimer_joueur(jou),couleur=C_ERREUR,padx=6,pady=2,taille=8).pack(side="left",padx=2)
+        creer_btn(btn_frame,"",lambda jou=joueur: supprimer_joueur(jou),couleur=C_BORDURE,padx=6,pady=2,taille=8,icone="close").pack(side="left",padx=2)
 
 def page_profils():
     effacer_frame()
     f=etat["frame_principale"]
 
-    tk.Label(f,text="👤  Gestion des Profils",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
+    tk.Label(f,text="Gestion des Profils",image=get_icon("user"),compound="left",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
 
     creer_frame=creer_carte(f,titre="Créer un profil")
     creer_frame.pack(padx=60,fill="x",pady=8)
@@ -590,7 +615,7 @@ def page_stats_joueur(joueur):
     joueur_id=joueur[0]
     stats=player_service.afficher_stats(joueur)
 
-    tk.Label(f,text=f"📊  Stats de {stats['nom']}",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
+    tk.Label(f,text=f"Stats de {stats['nom']}",image=get_icon("bar_chart"),compound="left",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
 
     total=stats["total_parties"]
     taux=stats["taux_victoire"]
@@ -614,7 +639,7 @@ def page_stats_joueur(joueur):
     bar_bg.update_idletasks()
 
     w_total=bar_bg.winfo_width() or 400
-    w_fill=int(w_total * taux / 100)
+    w_fill=int(w_total*taux/100)
     bar_fill=tk.Frame(bar_inner,bg=C_SUCCES,height=18,width=w_fill)
     bar_fill.place(in_=bar_bg,x=0,y=0)
 
@@ -625,7 +650,7 @@ def page_stats_joueur(joueur):
 
     historiques=BD.get_historique_joueur(joueur_id)
     for i,p in enumerate(historiques):
-        bg=C_PANNEAU if i % 2 == 0 else C_ACCENT
+        bg=C_PANNEAU if i%2==0 else C_ACCENT
         row=tk.Frame(hist_frame,bg=bg)
         row.pack(fill="x",padx=15,pady=1)
 
@@ -652,11 +677,11 @@ def page_classement():
     effacer_frame()
     f=etat["frame_principale"]
 
-    tk.Label(f,text="🎯  Classement Général",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
+    tk.Label(f,text="  Classement Général",image=get_icon("target"),compound="left",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
 
     classement=BD.get_tous_joueurs()
 
-    medailles=["🥇","🥈","🥉"]
+    medailles=["medal_gold","medal_silver","medal_bronze"]
     couleurs_rang=[C_OR,C_ARGENT,C_BRONZE]
 
     podium_frame=tk.Frame(f,bg=C_FOND)
@@ -664,10 +689,12 @@ def page_classement():
 
     for i,joueur in enumerate(classement[:3]):
         col=couleurs_rang[i] if i<3 else C_TEXTE
-        med=medailles[i] if i<3 else f"#{i+1}"
         card=tk.Frame(podium_frame,bg=C_PANNEAU,padx=24,pady=18)
         card.grid(row=0,column=i,padx=12)
-        tk.Label(card,text=med,bg=C_PANNEAU,font=("Helvetica",28)).pack()
+        if i<3:
+            tk.Label(card,image=get_icon(medailles[i]),bg=C_PANNEAU).pack()
+        else:
+            tk.Label(card,text=f"#{i+1}",bg=C_PANNEAU,font=("Helvetica",28)).pack()
         tk.Label(card,text=joueur[1],bg=C_PANNEAU,fg=col,font=("Helvetica",14,"bold")).pack()
         tk.Label(card,text=f"{joueur[3]} pts",bg=C_PANNEAU,fg=C_TEXTE_ALT,font=F_NORMAL).pack()
 
@@ -685,7 +712,7 @@ def page_classement():
 
     for i,joueur in enumerate(classement):
         bg=C_PANNEAU if i%2==0 else C_ACCENT
-        total=joueur[4] + joueur[5]
+        total=joueur[4]+joueur[5]
         taux=f"{round(joueur[4]/total*100,1)}%" if total else "-"
 
         vals=[f"#{i+1}",joueur[1],joueur[3],joueur[4],joueur[5],taux]
@@ -704,9 +731,9 @@ def page_stats():
     effacer_frame()
     f=etat["frame_principale"]
 
-    tk.Label(f,text="📊  Statistiques Globales",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
+    tk.Label(f,text="  Statistiques Globales",image=get_icon("bar_chart"),compound="left",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(30,20))
 
-    total_parties,moy,par_niveau,classement=BD.get_statistiques_globales()
+    total_parties,par_niveau,classement=BD.get_statistiques_globales()
     total_parties=total_parties[0] if isinstance(total_parties,tuple) else total_parties
     total_joueurs=len(BD.get_tous_joueurs())
     meilleur=classement[0] if classement else ("",0,0,0,0)
@@ -763,10 +790,12 @@ def creer_sidebar(root):
     creer_separateur(sidebar).pack(fill="x",padx=16,pady=0)
 
     nav_items=[
-        ("🏠  Accueil",page_accueil),(" ▶  Jouer",page_config_partie),("👤  Profils",page_profils),("🏆  Classement",page_classement),("📊  Statistiques",page_stats),]
+        ("  Accueil","home",page_accueil),("  Jouer","play",page_config_partie),("  Profils","user",page_profils),("  Classement","trophy",page_classement),("  Statistiques","bar_chart",page_stats),]
 
-    for label,commande in nav_items:
-        btn=tk.Button(sidebar,text=label,command=commande,bg=C_PANNEAU,fg=C_TEXTE,font=("Helvetica",11),relief="flat",anchor="w",padx=18,pady=9,cursor="hand2",activebackground=C_ACCENT,activeforeground=C_TEXTE,bd=0)
+    for label,icone,commande in nav_items:
+        img=get_icon(icone)
+        btn=tk.Button(sidebar,text=label,image=img,compound="left",command=commande,bg=C_PANNEAU,fg=C_TEXTE,font=("Helvetica",11),relief="flat",anchor="w",padx=18,pady=9,cursor="hand2",activebackground=C_ACCENT,activeforeground=C_TEXTE,bd=0)
+        btn.image=img
         btn.pack(fill="x")
         btn.bind("<Enter>",lambda e,b=btn: on_nav_enter(e,b))
         btn.bind("<Leave>",lambda e,b=btn: on_nav_leave(e,b))
@@ -829,5 +858,5 @@ def main():
     page_accueil()
     root.mainloop()
 
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
