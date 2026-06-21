@@ -1,6 +1,5 @@
 from settings import *
 import tkinter as tk
-from tkinter import messagebox
 import time
 import os
 import database as BD
@@ -19,20 +18,11 @@ def get_icon(nom):
 COULEURS_NIVEAU={1:C_NIV1,2:C_NIV2,3:C_NIV3,4:C_NIV4}
 
 etat={
-    "page_courante":"accueil",
-    "joueur1":None,
-    "joueur2":None,
-    "mode_jeu":"JcIA",
-    "niveau_ia":4,
-    "piles": [3,5,7],
-    "piles_initiales":[3,5,7],
-    "tour":1,
-    "partie_en_cours":False,
-    "debut_partie":None,
-    "nb_coups":0,
-    "pile_selectionnee":None,
-    "frame_principale":None,
-    "root":None,
+    "page_courante":"accueil"  ,"joueur1":None  ,"joueur2":None,
+    "mode_jeu":"JcIA"          ,"niveau_ia":2   ,"piles": [3,5,7],
+    "piles_initiales":[3,5,7]  ,"tour":1        ,"partie_en_cours":False,
+    "debut_partie":None        ,"nb_coups":0    ,"pile_selectionnee":None,
+    "frame_principale":None    ,"root":None,
 }
 
 def partie_terminee():
@@ -106,7 +96,6 @@ def page_accueil():
 
     niveaux_frame=creer_carte(f,titre="Niveaux de l'IA disponibles")
     niveaux_frame.pack(pady=ESP_L,padx=60,fill="x")
-
     niveaux=[("1","Débutant",C_NIV1),("2","Intermédiaire",C_NIV2),("3","Avancé (Minimax)",C_NIV3),("4","Expert (NimSum)",C_NIV4)]
 
     grid=tk.Frame(niveaux_frame,bg=C_PANNEAU)
@@ -132,7 +121,7 @@ def lancer():
         if any(p<=0 for p in piles):
             raise ValueError("Les piles doivent être > 0")
     except ValueError as ex:
-        messagebox.showerror("Erreur",f"Piles invalides : {ex}")
+        tk.messagebox.showerror("Erreur",f"Piles invalides : {ex}")
         return
 
     nom_j1=etat["entry_j1"].get().strip() or "Joueur 1"
@@ -140,7 +129,7 @@ def lancer():
     if not existe_j1:
         ok,joueur1=player_service.creer_profil(nom_j1)
         if not ok:
-            messagebox.showerror("Erreur",joueur1)
+            tk.messagebox.showerror("Erreur",joueur1)
             return
     etat["joueur1"]={"id":joueur1[0],"nom":joueur1[1]}
 
@@ -152,7 +141,7 @@ def lancer():
         if not existe_j2:
             ok,joueur2=player_service.creer_profil(nom_j2)
             if not ok:
-                messagebox.showerror("Erreur",joueur2)
+                tk.messagebox.showerror("Erreur",joueur2)
                 return
         etat["joueur2"]={"id": joueur2[0],"nom": joueur2[1]}
 
@@ -187,7 +176,7 @@ def page_config_partie():
     ia_frame.pack(padx=60,fill="x",pady=ESP_S)
     etat["ia_frame_ref"]=ia_frame
 
-    niveau_var=tk.IntVar(value=4)
+    niveau_var=tk.IntVar(value=2)
     etat["niveau_var"]=niveau_var
     ia_inner=tk.Frame(ia_frame,bg=C_PANNEAU)
     ia_inner.pack(padx=ESP_M,pady=ESP_S,anchor="w")
@@ -318,7 +307,7 @@ def dessiner_piles():
 
     for i,nb in enumerate(etat["piles"]):
         selected=(etat["pile_selectionnee"]==i)
-        vide=(nb == 0)
+        vide=(nb==0)
         pile_bg=C_PILE_SEL if selected else C_PANNEAU
         border_col=C_PILE_SEL if selected else (C_BORDURE if not vide else C_TEXTE_DIM)
         border_w=2 if selected else 1
@@ -329,7 +318,7 @@ def dessiner_piles():
         objets_frame.pack(pady=10)
 
         if vide:
-            tk.Label(objets_frame,text="∅",bg=pile_bg,fg=C_TEXTE_DIM,font=("Helvetica",26)).pack()
+            tk.Label(objets_frame,text="VIDE",bg=pile_bg,fg=C_TEXTE_DIM,font=("Helvetica",26)).pack()
         else:
             cols=4
             dot_icon=get_icon("pile_dot_sel" if selected else "pile_dot")
@@ -375,29 +364,28 @@ def jouer_coup():
         return
 
     if etat["pile_selectionnee"] is None:
-        messagebox.showwarning("⚠  Sélection requise","Cliquez sur une pile pour la sélectionner d'abord.")
+        tk.messagebox.showwarning("⚠  Sélection requise","Cliquez sur une pile pour la sélectionner d'abord.")
         return
 
     idx=etat["pile_selectionnee"]
     max_objets=etat["piles"][idx]
 
     if max_objets == 0:
-        messagebox.showerror("❌  Erreur",f"La pile {idx+1} est vide. Sélectionnez une autre pile.")
+        tk.messagebox.showerror("❌  Erreur",f"La pile {idx+1} est vide. Sélectionnez une autre pile.")
         return
 
     try:
         nb=int(etat["spin_val"].get())
     except ValueError:
-        messagebox.showerror("❌  Erreur","Veuillez entrer un nombre valide.")
+        tk.messagebox.showerror("❌  Erreur","Veuillez entrer un nombre valide.")
         return
 
     if nb<1:
-        messagebox.showerror("❌  Erreur","Vous devez retirer au moins 1 objet.")
+        tk.messagebox.showerror("❌  Erreur","Vous devez retirer au moins 1 objet.")
         return
 
     if nb>max_objets:
-        messagebox.showerror("❌  Erreur",f"La pile {idx+1} ne contient que {max_objets} objet{'s' if max_objets > 1 else ''}.\n"
-                            f"Vous ne pouvez retirer que {max_objets} objet(s) maximum.")
+        tk.messagebox.showerror("❌  Erreur",f"La pile {idx+1} ne contient que {max_objets} objet{'s' if max_objets > 1 else ''}.\n"f"Vous ne pouvez retirer que {max_objets} objet(s) maximum.")
         return
 
     etat["piles"][idx]-=nb
@@ -438,7 +426,7 @@ def jouer_ia_auto():
 
 def finir_partie(perdant):
     etat["partie_en_cours"]=False
-    duree=int(time.time() - etat["debut_partie"]) if etat["debut_partie"] else 0
+    duree=int(time.time()-etat["debut_partie"]) if etat["debut_partie"] else 0
     gagnant=perdant
     nom_gagnant=etat["joueur1"]["nom"] if gagnant==1 else etat["joueur2"]["nom"]
     nom_perdant=etat["joueur1"]["nom"] if perdant==2 else etat["joueur2"]["nom"]
@@ -448,14 +436,12 @@ def finir_partie(perdant):
 
     if joueur1_id is not None and joueur2_id is not None:
         try:
-            BD.enregistrer_partie(
-                joueur1_id,joueur2_id,etat["mode_jeu"],etat["niveau_ia"],etat["piles_initiales"],joueur1_id if gagnant==1 else joueur2_id,joueur1_id if perdant==1 else joueur2_id,duree,etat["nb_coups"]
-            )
+            BD.enregistrer_partie(joueur1_id,joueur2_id,etat["mode_jeu"],etat["niveau_ia"],etat["piles_initiales"],joueur1_id if gagnant==1 else joueur2_id,joueur1_id if perdant==1 else joueur2_id,duree,etat["nb_coups"])
         except Exception:
             pass
 
         try:
-            if gagnant == 1:
+            if gagnant==1:
                 BD.mettre_a_jour_stats(joueur1_id,victoire=1,points=10)
                 BD.mettre_a_jour_stats(joueur2_id,defaite=1,points=-5)
             else:
@@ -465,7 +451,12 @@ def finir_partie(perdant):
             pass
     elif joueur1_id is not None and joueur2_id is None:
         try:
-            if gagnant == 1:
+            BD.enregistrer_partie(joueur1_id,joueur2_id,etat["mode_jeu"],etat["niveau_ia"],etat["piles_initiales"],joueur1_id if gagnant==1 else joueur2_id,joueur1_id if perdant==1 else joueur2_id,duree,etat["nb_coups"])
+        except Exception:
+            pass
+
+        try:
+            if gagnant==1:
                 BD.mettre_a_jour_stats(joueur1_id,victoire=1,points=10)
             else:
                 BD.mettre_a_jour_stats(joueur1_id,defaite=1,points=-5)
@@ -475,7 +466,7 @@ def finir_partie(perdant):
     page_resultat(nom_gagnant,nom_perdant,duree)
 
 def confirmer_abandon():
-    if messagebox.askyesno("Abandonner","Voulez-vous vraiment abandonner la partie ?"):
+    if tk.messagebox.askyesno("Abandonner","Voulez-vous vraiment abandonner la partie ?"):
         etat["partie_en_cours"]=False
         page_accueil()
 
@@ -484,15 +475,12 @@ def page_resultat(gagnant,perdant,duree):
     f=etat["frame_principale"]
 
     tk.Frame(f,bg=C_FOND,height=30).pack()
-
     trophy_lbl=tk.Label(f,image=get_icon("trophy_large"),bg=C_FOND)
     trophy_lbl.pack()
-
     tk.Label(f,text="Partie Terminée !",bg=C_FOND,fg=C_OR,font=("Helvetica",26,"bold")).pack(pady=(10,0))
 
     res_frame=creer_carte(f)
     res_frame.pack(pady=20,padx=100,fill="x")
-
     tk.Label(res_frame,text="GAGNANT",bg=C_PANNEAU,fg=C_TEXTE_DIM,font=("Helvetica",9,"bold")).pack(pady=(20,0))
     tk.Label(res_frame,text=gagnant,bg=C_PANNEAU,fg=C_SUCCES,font=("Helvetica",24,"bold")).pack(pady=(2,0))
 
@@ -500,7 +488,6 @@ def page_resultat(gagnant,perdant,duree):
 
     stats_inner=tk.Frame(res_frame,bg=C_PANNEAU)
     stats_inner.pack(pady=(0,20))
-
     infos=[("Nombre de coups",str(etat["nb_coups"])),("Durée",f"{duree}s"),("Piles initiales",", ".join(str(p) for p in etat["piles_initiales"])),("Mode",etat["mode_jeu"]),]
     for i,(k,v) in enumerate(infos):
         tk.Label(stats_inner,text=k,bg=C_PANNEAU,fg=C_TEXTE_ALT,font=F_NORMAL).grid(row=i,column=0,sticky="w",padx=(24,16),pady=4)
@@ -529,13 +516,13 @@ def creer_profil_form():
 
 def choisir_joueur(jou,slot=1):
     etat[f"joueur{slot}"]={"id": jou[0],"nom": jou[1]}
-    messagebox.showinfo("Sélection",f"'{jou[1]}' sélectionné comme Joueur {slot}.")
+    tk.messagebox.showinfo("Sélection",f"'{jou[1]}' sélectionné comme Joueur {slot}.")
 
 def voir_stats_joueur(jou):
     page_stats_joueur(jou)
 
 def supprimer_joueur(jou):
-    if messagebox.askyesno("Supprimer",f"Supprimer le profil '{jou[1]}' ?"):
+    if tk.messagebox.askyesno("Supprimer",f"Supprimer le profil '{jou[1]}' ?"):
         BD.supprimer_joueur(jou[0])
         rafraichir_liste()
 
@@ -550,7 +537,7 @@ def rafraichir_liste():
 
     joueurs=BD.get_tous_joueurs()
     for i,joueur in enumerate(joueurs):
-        bg=C_PANNEAU if i%2==0 else C_ACCENT
+        bg=C_PANNEAU
         nom=joueur[1]
         score=joueur[3]
         victoires=joueur[4]
@@ -654,7 +641,7 @@ def page_stats_joueur(joueur):
 def page_classement():
     effacer_frame()
     f=etat["frame_principale"]
-    tk.Label(f,text="  Classement Général",image=get_icon("target"),compound="left",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(ESP_XL,ESP_L))
+    tk.Label(f,text="Classement Général",image=get_icon("target"),compound="left",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(ESP_XL,ESP_L))
     classement=BD.get_tous_joueurs()
     medailles=["medal_gold","medal_silver","medal_bronze"]
     couleurs_rang=[C_OR,C_ARGENT,C_BRONZE]
@@ -702,7 +689,7 @@ def page_stats():
     effacer_frame()
     f=etat["frame_principale"]
 
-    tk.Label(f,text="  Statistiques Globales",image=get_icon("bar_chart"),compound="left",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(ESP_XL,ESP_L))
+    tk.Label(f,text="Statistiques Globales",image=get_icon("bar_chart"),compound="left",bg=C_FOND,fg=C_TEXTE,font=("Helvetica",20,"bold")).pack(pady=(ESP_XL,ESP_L))
     total_parties,duree_moyenne,par_niveau,classement=BD.get_statistiques_globales()
     total_parties=total_parties[0] if isinstance(total_parties,tuple) else total_parties
     total_joueurs=len(BD.get_tous_joueurs())
@@ -759,8 +746,7 @@ def creer_sidebar(root):
     sidebar=tk.Frame(root,bg=C_PANNEAU,width=190)
     sidebar.pack(side="left",fill="y")
     sidebar.pack_propagate(False)
-    tk.Label(sidebar,text="NIM",bg=C_PANNEAU,fg=C_BOUTON,font=("Helvetica",24,"bold")).pack(pady=(28,2))
-    tk.Label(sidebar,text="STRATÉGIE & IA",bg=C_PANNEAU,fg=C_TEXTE_DIM,font=("Helvetica",8,"bold")).pack(pady=(0,20))
+    tk.Label(sidebar,text="NAVBAR",bg=C_PANNEAU,fg=C_BOUTON,font=("Helvetica",24,"bold")).pack(pady=(28,20))
     creer_separateur(sidebar).pack(fill="x",padx=16,pady=0)
     nav_items=[("accueil","  Accueil","home",page_accueil),("jouer","  Jouer","play",page_config_partie),("profils","  Profils","user",page_profils),("classement","  Classement","trophy",page_classement),("stats","  Statistiques","bar_chart",page_stats),]
 
@@ -779,28 +765,25 @@ def creer_sidebar(root):
 
     marquer_nav_actif("accueil")
     tk.Label(sidebar,text="NimGame",bg=C_PANNEAU,fg=C_TEXTE_DIM,font=("Helvetica",8)).pack(side="bottom",pady=14)
-
     return sidebar
 
 def main():
     try:
         BD.initialiser_bd()
     except Exception:
-        messagebox.showerror("Erreur de base de données","Impossible de se connecter à la base de données.")
+        tk.messagebox.showerror("Erreur de base de données","Impossible de se connecter à la base de données.")
 
     root=tk.Tk()
-    root.title("Jeu de Nim — IA & Statistiques")
+    root.title("Jeu de Nim")
     root.geometry("1000x680")
     root.configure(bg=C_FOND)
     root.resizable(True,True)
     root.minsize(800,720)
     etat["root"]=root
     creer_sidebar(root)
-
     main_container=tk.Frame(root,bg=C_FOND)
     main_container.pack(side="right",fill="both",expand=True)
     etat["frame_principale"]=main_container
-
     page_accueil()
     root.mainloop()
 

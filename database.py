@@ -11,30 +11,30 @@ con=pymysql.Connection(
 def initialiser_bd():
     with con.cursor() as cur:
         try:
-            cur.execute("""CREATE TABLE IF NOT EXISTS joueurs(
-                            id            INT           PRIMARY KEY AUTO_INCREMENT,
-                            nom           VARCHAR(20)   NOT NULL UNIQUE,
-                            date_creation DATETIME      DEFAULT NOW(),
-                            score_total   INT           DEFAULT 0,
-                            victoires     INT           DEFAULT 0,
-                            defaites      INT           DEFAULT 0)""")
+            cur.execute("""CREATE TABLE if NOT EXISTS joueurs(
+                            id            int           PRIMARY KEY AUTO_INCREMENT,
+                            nom           varchar(20)   NOT NULL UNIQUE,
+                            date_creation datetime      DEFAULT NOW(),
+                            score_total   int           DEFAULT 0,
+                            victoires     int           DEFAULT 0,
+                            defaites      int           DEFAULT 0)""")
             con.commit()
         except pymysql.Error:
             con.rollback()
 
         try:
-            cur.execute("""CREATE TABLE IF NOT EXISTS parties(
-                            id              INT          AUTO_INCREMENT PRIMARY KEY,
-                            joueur1_id      INT          NOT NULL,
-                            joueur2_id      INT,
-                            mode_jeu        VARCHAR(10)  NOT NULL,
-                            niveau_ia       INT          DEFAULT 0,
-                            piles_initiales VARCHAR(100) NOT NULL,
-                            gagnant_id      INT,
-                            perdant_id      INT,
-                            date_partie     DATETIME     DEFAULT NOW(),
-                            duree_secondes  INT          DEFAULT 0,
-                            nb_coups        INT          DEFAULT 0,
+            cur.execute("""CREATE TABLE if NOT EXISTS parties(
+                            id              int          AUTO_INCREMENT PRIMARY KEY,
+                            joueur1_id      int          NOT NULL,
+                            joueur2_id      int,
+                            mode_jeu        varchar(10)  NOT NULL,
+                            niveau_ia       int          DEFAULT 0,
+                            piles_initiales varchar(100) NOT NULL,
+                            gagnant_id      int,
+                            perdant_id      int,
+                            date_partie     datetime     DEFAULT NOW(),
+                            duree_secondes  int          DEFAULT 0,
+                            nb_coups        int          DEFAULT 0,
                             FOREIGN KEY (joueur1_id) REFERENCES joueurs(id),
                             FOREIGN KEY (joueur2_id) REFERENCES joueurs(id))""")
             con.commit()
